@@ -95,7 +95,13 @@ def principal_register(request):
         try:
             send_otp_email(email, otp_obj.otp, purpose='register')
         except Exception as e:
-            logger.error(f"Failed to send OTP email: {e}")
+            logger.exception("Failed to send OTP email to %s: %s", email, e)
+            # Roll back so the user can retry with the same username/email
+            user.delete()
+            return JsonResponse({
+                'status': 'error',
+                'message': 'We could not send the verification email. Please check the email address and try again in a moment.'
+            })
 
         # Store user_id in session for OTP verification
         request.session['pending_user_id'] = user.id
@@ -149,6 +155,7 @@ def resend_otp(request):
         send_otp_email(user.email, otp_obj.otp, purpose='register')
         return JsonResponse({'status': 'success', 'message': 'New OTP sent!'})
     except Exception as e:
+        logger.exception("Failed to resend OTP: %s", e)
         return JsonResponse({'status': 'error', 'message': 'Failed to resend OTP.'})
 
 

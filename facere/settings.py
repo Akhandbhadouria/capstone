@@ -180,6 +180,12 @@ EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='ClassAudit AI <noreply@classaudit.ai>')
+# Without a timeout, a blocked SMTP port makes the request hang until gunicorn kills it
+EMAIL_TIMEOUT = config('EMAIL_TIMEOUT', default=15, cast=int)
+
+# Optional: send via Brevo HTTPS API (use this on hosts that block SMTP, e.g. Render free tier)
+BREVO_API_KEY = config('BREVO_API_KEY', default='')
+BREVO_SENDER_EMAIL = config('BREVO_SENDER_EMAIL', default='')
 
 if not DEBUG:
     # HTTPS enforcement

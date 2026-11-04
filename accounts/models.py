@@ -36,7 +36,7 @@ class OTPVerification(models.Model):
 
     def is_valid(self):
         """OTP valid for 10 minutes"""
-        return not self.is_used and (timezone.now() - self.created_at).seconds < 600
+        return not self.is_used and (timezone.now() - self.created_at).total_seconds() < 600
 
     @classmethod
     def generate_for_user(cls, user, purpose='register'):
