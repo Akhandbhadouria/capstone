@@ -4,7 +4,8 @@ import base64
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpResponse
 from django.core.files.base import ContentFile
-from .models import UserImages, User, Principal, Teacher, Timetable, TeacherAttendance, ClassSession
+from .models import UserImages, User, Principal, Teacher, Timetable, TeacherAttendance, ClassSession, OTPVerification
+from .utils.email_utils import send_otp_email
 from django.utils import timezone
 import datetime
 import calendar
@@ -58,9 +59,10 @@ def principal_register(request):
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '')
         school_name = request.POST.get('school_name', '').strip()
+        email = request.POST.get('email', '').strip().lower()
 
         # ── Input Validation ──
-        if not username or not password or not school_name:
+        if not username or not password or not school_name or not email:
             return JsonResponse({'status': 'error', 'message': 'All fields are required.'})
 
         if len(username) < 3:
@@ -81,27 +83,100 @@ def principal_register(request):
         if User.objects.filter(username=username).exists():
             return JsonResponse({'status': 'error', 'message': 'Username already exists.'})
 
-        user = User.objects.create_user(username=username, password=password)
+        if User.objects.filter(email=email).exists():
+            return JsonResponse({'status': 'error', 'message': 'Email already registered.'})
+
+        # Create inactive user (activate after OTP verification)
+        user = User.objects.create_user(username=username, password=password, email=email, is_active=False)
         Principal.objects.create(user=user, school_name=school_name)
-        
-        login(request, user)  # Log them in automatically
-        return JsonResponse({'status': 'success', 'message': 'Principal registered successfully!', 'redirect': '/principal/dashboard/'})
+
+        # Generate and send OTP
+        otp_obj = OTPVerification.generate_for_user(user, purpose='register')
+        try:
+            send_otp_email(email, otp_obj.otp, purpose='register')
+        except Exception as e:
+            logger.error(f"Failed to send OTP email: {e}")
+
+        # Store user_id in session for OTP verification
+        request.session['pending_user_id'] = user.id
+        request.session['pending_user_role'] = 'principal'
+
+        return JsonResponse({'status': 'success', 'message': 'OTP sent to your email!', 'redirect': '/verify-otp/'})
 
     return render(request, 'principal_register.html')
 
+
+def verify_otp(request):
+    user_id = request.session.get('pending_user_id')
+    if not user_id:
+        return redirect('home')
+
+    if request.method == 'POST':
+        entered_otp = request.POST.get('otp', '').strip()
+        try:
+            user = User.objects.get(id=user_id)
+            otp_obj = OTPVerification.objects.filter(
+                user=user, purpose='register', is_used=False
+            ).latest('created_at')
+
+            if otp_obj.is_valid() and otp_obj.otp == entered_otp:
+                otp_obj.is_used = True
+                otp_obj.save()
+                user.is_active = True
+                user.save()
+                login(request, user)
+                del request.session['pending_user_id']
+                role = request.session.pop('pending_user_role', 'principal')
+                if role == 'principal':
+                    return JsonResponse({'status': 'success', 'redirect': '/principal/dashboard/'})
+                else:
+                    return JsonResponse({'status': 'success', 'redirect': '/teacher/dashboard/'})
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Invalid or expired OTP. Please try again.'})
+        except (User.DoesNotExist, OTPVerification.DoesNotExist):
+            return JsonResponse({'status': 'error', 'message': 'OTP not found. Please register again.'})
+
+    return render(request, 'verify_otp.html')
+
+
+def resend_otp(request):
+    user_id = request.session.get('pending_user_id')
+    if not user_id:
+        return JsonResponse({'status': 'error', 'message': 'Session expired.'})
+    try:
+        user = User.objects.get(id=user_id)
+        otp_obj = OTPVerification.generate_for_user(user, purpose='register')
+        send_otp_email(user.email, otp_obj.otp, purpose='register')
+        return JsonResponse({'status': 'success', 'message': 'New OTP sent!'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': 'Failed to resend OTP.'})
+
+
 def principal_login_view(request):
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-        user = authenticate(username=username, password=password)
+        login_input = request.POST.get('username', '').strip()  # can be username or email
+        password = request.POST.get('password', '')
+
+        # Try username first, then email
+        user = None
+        if '@' in login_input:
+            try:
+                u = User.objects.get(email=login_input)
+                user = authenticate(request, username=u.username, password=password)
+            except User.DoesNotExist:
+                pass
+        else:
+            user = authenticate(request, username=login_input, password=password)
+
         if user is not None:
             if hasattr(user, 'principal'):
                 login(request, user)
                 return redirect('principal_dashboard')
             else:
-                 return render(request, 'principal_login.html', {'error': 'Not a valid Principal account'})
+                return render(request, 'principal_login.html', {'error': 'Not a principal account.'})
         else:
-             return render(request, 'principal_login.html', {'error': 'Invalid credentials'})
+            return render(request, 'principal_login.html', {'error': 'Invalid credentials.'})
+
     return render(request, 'principal_login.html')
 
 @principal_required
@@ -153,10 +228,20 @@ def principal_dashboard(request):
 
 def teacher_login_password(request):
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-        user = authenticate(username=username, password=password)
-        
+        login_input = request.POST.get('username', '').strip()  # can be username or email
+        password = request.POST.get('password', '')
+
+        # Try username first, then email
+        user = None
+        if '@' in login_input:
+            try:
+                u = User.objects.get(email=login_input)
+                user = authenticate(request, username=u.username, password=password)
+            except User.DoesNotExist:
+                pass
+        else:
+            user = authenticate(request, username=login_input, password=password)
+
         if user is not None:
             if hasattr(user, 'teacher'):
                 login(request, user)
@@ -164,8 +249,8 @@ def teacher_login_password(request):
             else:
                 return render(request, 'teacher_login.html', {'error': 'This account is not a Teacher account.'})
         else:
-             return render(request, 'teacher_login.html', {'error': 'Invalid username or password'})
-    
+            return render(request, 'teacher_login.html', {'error': 'Invalid username or password.'})
+
     return render(request, 'teacher_login.html')
 
 @principal_required

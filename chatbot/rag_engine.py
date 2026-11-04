@@ -1,4 +1,4 @@
-"""
+﻿"""
 RAG Engine for ClassAudit AI Chatbot.
 - Per-principal ChromaDB collections (each school has its own knowledge base).
 - Supports PDF, Markdown, and TXT files.
@@ -7,12 +7,31 @@ RAG Engine for ClassAudit AI Chatbot.
 
 import os
 import re
-import chromadb
-from sentence_transformers import SentenceTransformer
-from groq import Groq
 from django.conf import settings
 
-# ── Singletons ──
+# Optional imports — chatbot works only if these are installed
+try:
+    import chromadb
+    CHROMADB_AVAILABLE = True
+except ImportError:
+    chromadb = None
+    CHROMADB_AVAILABLE = False
+
+try:
+    from sentence_transformers import SentenceTransformer
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    SentenceTransformer = None
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
+
+try:
+    from groq import Groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    Groq = None
+    GROQ_AVAILABLE = False
+
+# â”€â”€ Singletons â”€â”€
 _embedding_model = None
 _chroma_client = None
 _groq_client = None
@@ -25,7 +44,7 @@ def _get_embedding_model() -> SentenceTransformer:
     return _embedding_model
 
 
-def _get_chroma_client() -> chromadb.PersistentClient:
+def _get_chroma_client():
     global _chroma_client
     if _chroma_client is None:
         chroma_dir = os.path.join(settings.BASE_DIR, "chroma_db")
@@ -44,7 +63,7 @@ def _get_groq_client() -> Groq:
     return _groq_client
 
 
-def _get_collection(principal_id: int) -> chromadb.Collection:
+def _get_collection(principal_id: int):
     """Get or create a ChromaDB collection for a specific principal."""
     client = _get_chroma_client()
     collection_name = f"principal_{principal_id}"
@@ -54,7 +73,7 @@ def _get_collection(principal_id: int) -> chromadb.Collection:
     )
 
 
-# ── Text Extraction ──
+# â”€â”€ Text Extraction â”€â”€
 
 def _extract_text_from_file(file_path: str) -> str:
     """Extract raw text from PDF, Markdown, or TXT files."""
@@ -123,7 +142,7 @@ def _chunk_text(text: str, chunk_size: int = 600, overlap: int = 100) -> list[st
     return [c for c in chunks if len(c.strip()) > 30]
 
 
-# ── Ingestion ──
+# â”€â”€ Ingestion â”€â”€
 
 def ingest_file_for_principal(
     principal_id: int,
@@ -180,7 +199,7 @@ def delete_file_from_principal(principal_id: int, filename: str) -> None:
         pass
 
 
-# ── Retrieval ──
+# â”€â”€ Retrieval â”€â”€
 
 def retrieve_context(query: str, principal_id: int, n_results: int = 5) -> list[dict]:
     """Retrieve top-N relevant chunks from the principal's collection."""
@@ -216,9 +235,9 @@ def retrieve_context(query: str, principal_id: int, n_results: int = 5) -> list[
     return chunks
 
 
-# ── Generation ──
+# â”€â”€ Generation â”€â”€
 
-SYSTEM_PROMPT = """You are the ClassAudit AI Institutional Assistant — a professional, helpful, and accurate assistant for teachers and principals at an educational institution.
+SYSTEM_PROMPT = """You are the ClassAudit AI Institutional Assistant â€” a professional, helpful, and accurate assistant for teachers and principals at an educational institution.
 
 You answer questions exclusively based on the provided institutional documents: policies, guidelines, handbooks, and system guides.
 
@@ -228,7 +247,7 @@ Rules you MUST follow:
 3. Keep responses clear, structured, and professional.
 4. When citing a rule, reference the document name (e.g., "According to the Attendance Policy...").
 5. Use bullet points or numbered steps for procedural answers.
-6. Be concise — do not repeat information unnecessarily."""
+6. Be concise â€” do not repeat information unnecessarily."""
 
 
 def generate_answer(query: str, context_chunks: list[dict]) -> str:
@@ -253,14 +272,14 @@ def generate_answer(query: str, context_chunks: list[dict]) -> str:
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        return f"⚠️ Error generating response: {str(e)}"
+        return f"âš ï¸ Error generating response: {str(e)}"
 
 
-# ── Main Entry Point ──
+# â”€â”€ Main Entry Point â”€â”€
 
 def chat(query: str, principal_id: int) -> dict:
     """
-    RAG chat — retrieves from principal's own knowledge base and generates answer.
+    RAG chat â€” retrieves from principal's own knowledge base and generates answer.
     """
     if not query or not query.strip():
         return {"answer": "Please ask a question.", "sources": []}
@@ -270,7 +289,7 @@ def chat(query: str, principal_id: int) -> dict:
 
         if not context_chunks:
             return {
-                "answer": "📭 No documents have been uploaded to your institution's knowledge base yet.\n\nIf you are a **Principal**, please go to **Principal Dashboard → Manage Documents** to upload your school's policy files.\n\nIf you are a **Teacher**, please contact your Principal.",
+                "answer": "ðŸ“­ No documents have been uploaded to your institution's knowledge base yet.\n\nIf you are a **Principal**, please go to **Principal Dashboard â†’ Manage Documents** to upload your school's policy files.\n\nIf you are a **Teacher**, please contact your Principal.",
                 "sources": []
             }
 
@@ -291,7 +310,7 @@ def chat(query: str, principal_id: int) -> dict:
         return {"answer": answer, "sources": sources}
 
     except Exception as e:
-        return {"answer": f"⚠️ An error occurred: {str(e)}", "sources": []}
+        return {"answer": f"âš ï¸ An error occurred: {str(e)}", "sources": []}
 
 
 def get_document_count(principal_id: int) -> int:

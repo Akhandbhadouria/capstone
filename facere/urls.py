@@ -46,6 +46,8 @@ urlpatterns = [
     path('teacher/end-class/', views.end_class, name='end_class'),
     path('teacher/records/', views.previous_records_teacher, name='previous_records_teacher'),
     path('teacher/help/', views.teacher_help, name='teacher_help'),
+    path('verify-otp/', views.verify_otp, name='verify_otp'),
+    path('resend-otp/', views.resend_otp, name='resend_otp'),
     path('admin/', admin.site.urls),
     path('chatbot/', include('chatbot.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

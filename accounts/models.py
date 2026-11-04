@@ -5,6 +5,8 @@ from django.dispatch import receiver
 import datetime
 import os
 import shutil
+import random
+from django.utils import timezone
 
 
 
@@ -23,6 +25,28 @@ class Principal(models.Model):
     def __str__(self):
         return f"Principal: {self.user.username}"
 
+
+
+class OTPVerification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='otps')
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+    purpose = models.CharField(max_length=20, default='register')  # register, login
+
+    def is_valid(self):
+        """OTP valid for 10 minutes"""
+        return not self.is_used and (timezone.now() - self.created_at).seconds < 600
+
+    @classmethod
+    def generate_for_user(cls, user, purpose='register'):
+        # Invalidate old OTPs
+        cls.objects.filter(user=user, purpose=purpose, is_used=False).update(is_used=True)
+        otp = str(random.randint(100000, 999999))
+        return cls.objects.create(user=user, otp=otp, purpose=purpose)
+
+    def __str__(self):
+        return f"OTP for {self.user.username} - {self.otp}"
 class Teacher(models.Model):
     DEPARTMENT_CHOICES = (
         ('CS', 'Computer Science'),

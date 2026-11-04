@@ -1,0 +1,165 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify OTP - ClassAudit AI</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/principal_register.css' %}">
+    <style>
+        .otp-container { text-align: center; max-width: 420px; margin: 0 auto; padding: 2rem; }
+        .otp-icon { font-size: 3rem; color: #6c63ff; margin-bottom: 1rem; }
+        .otp-inputs { display: flex; gap: 10px; justify-content: center; margin: 2rem 0; }
+        .otp-box { width: 50px; height: 56px; text-align: center; font-size: 1.5rem; font-weight: 700; border: 2px solid #e0e0e0; border-radius: 10px; outline: none; transition: 0.2s; }
+        .otp-box:focus { border-color: #6c63ff; box-shadow: 0 0 0 3px rgba(108,99,255,0.15); }
+        .resend-link { color: #6c63ff; cursor: pointer; font-weight: 600; border: none; background: none; font-size: 0.9rem; }
+        .resend-link:disabled { color: #aaa; cursor: not-allowed; }
+        .timer { font-size: 0.85rem; color: #888; margin-top: 0.5rem; }
+        .status-message { padding: 12px; border-radius: 8px; margin-bottom: 1rem; display: none; }
+        .status-message.success { background: #e8f5e9; color: #2e7d32; display: block; }
+        .status-message.error { background: #ffebee; color: #c62828; display: block; }
+        .split-container { display: flex; min-height: 100vh; }
+        .form-side { flex: 1; display: flex; align-items: center; justify-content: center; padding: 2rem; background: #fff; }
+        .visual-side { flex: 1; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; }
+        @media (max-width: 768px) { .visual-side { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="split-container">
+        <div class="visual-side">
+            <div style="color:white; text-align:center; padding: 2rem;">
+                <i class="fas fa-envelope-open-text" style="font-size: 5rem; margin-bottom: 1rem; opacity: 0.9;"></i>
+                <h2 style="font-size: 2rem; font-weight: 800;">Check Your Email</h2>
+                <p style="opacity: 0.8; font-size: 1.1rem; margin-top: 0.5rem;">We've sent a 6-digit OTP to verify your identity</p>
+            </div>
+        </div>
+        <div class="form-side">
+            <div class="otp-container">
+                <a href="/" class="brand-logo" style="display:block; text-align:center; margin-bottom:2rem;">
+                    <i class="fas fa-cube"></i> ClassAudit AI
+                </a>
+                <div class="otp-icon"><i class="fas fa-shield-alt"></i></div>
+                <h1 style="font-size:1.8rem; font-weight:800; margin-bottom:0.5rem;">Email Verification</h1>
+                <p style="color:#666;">Enter the 6-digit OTP sent to your email address.</p>
+
+                <div id="statusMsg" class="status-message"></div>
+
+                <form id="otpForm" onsubmit="submitOTP(event)">
+                    {% csrf_token %}
+                    <div class="otp-inputs">
+                        <input type="text" class="otp-box" maxlength="1" id="d1" oninput="moveNext(this, 'd2')" onkeydown="movePrev(event, null)">
+                        <input type="text" class="otp-box" maxlength="1" id="d2" oninput="moveNext(this, 'd3')" onkeydown="movePrev(event, 'd1')">
+                        <input type="text" class="otp-box" maxlength="1" id="d3" oninput="moveNext(this, 'd4')" onkeydown="movePrev(event, 'd2')">
+                        <input type="text" class="otp-box" maxlength="1" id="d4" oninput="moveNext(this, 'd5')" onkeydown="movePrev(event, 'd3')">
+                        <input type="text" class="otp-box" maxlength="1" id="d5" oninput="moveNext(this, 'd6')" onkeydown="movePrev(event, 'd4')">
+                        <input type="text" class="otp-box" maxlength="1" id="d6" oninput="moveNext(this, null)" onkeydown="movePrev(event, 'd5')">
+                    </div>
+                    <input type="hidden" name="otp" id="otpHidden">
+                    <button type="submit" class="btn-primary" id="verifyBtn" style="width:100%;">
+                        <i class="fas fa-check-circle"></i> Verify OTP
+                    </button>
+                </form>
+
+                <div style="margin-top: 1.5rem; color: #666; font-size: 0.9rem;">
+                    Didn't receive the OTP?
+                    <button class="resend-link" id="resendBtn" onclick="resendOTP()">Resend OTP</button>
+                    <div class="timer" id="timerText"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function moveNext(el, nextId) {
+            el.value = el.value.replace(/[^0-9]/g, '');
+            if (el.value && nextId) document.getElementById(nextId).focus();
+        }
+        function movePrev(e, prevId) {
+            if (e.key === 'Backspace' && !e.target.value && prevId) {
+                document.getElementById(prevId).focus();
+            }
+        }
+
+        function getOTP() {
+            return ['d1','d2','d3','d4','d5','d6'].map(id => document.getElementById(id).value).join('');
+        }
+
+        function showMsg(msg, type) {
+            const el = document.getElementById('statusMsg');
+            el.textContent = msg;
+            el.className = 'status-message ' + type;
+        }
+
+        function submitOTP(e) {
+            e.preventDefault();
+            const otp = getOTP();
+            if (otp.length !== 6) { showMsg('Please enter all 6 digits.', 'error'); return; }
+            document.getElementById('otpHidden').value = otp;
+            const btn = document.getElementById('verifyBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+
+            fetch('/verify-otp/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'otp=' + otp + '&csrfmiddlewaretoken=' + document.querySelector('[name=csrfmiddlewaretoken]').value
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showMsg('\u2705 Email verified! Redirecting...', 'success');
+                    setTimeout(() => window.location.href = data.redirect, 1000);
+                } else {
+                    showMsg(data.message, 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check-circle"></i> Verify OTP';
+                }
+            });
+        }
+
+        let resendTimer = 30;
+        let timerInterval;
+
+        function startTimer() {
+            const btn = document.getElementById('resendBtn');
+            const timerText = document.getElementById('timerText');
+            btn.disabled = true;
+            resendTimer = 30;
+            timerInterval = setInterval(() => {
+                timerText.textContent = `Resend available in ${resendTimer}s`;
+                resendTimer--;
+                if (resendTimer < 0) {
+                    clearInterval(timerInterval);
+                    btn.disabled = false;
+                    timerText.textContent = '';
+                }
+            }, 1000);
+        }
+
+        function resendOTP() {
+            fetch('/resend-otp/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'csrfmiddlewaretoken=' + document.querySelector('[name=csrfmiddlewaretoken]').value
+            })
+            .then(r => r.json())
+            .then(data => {
+                showMsg(data.message, data.status === 'success' ? 'success' : 'error');
+                if (data.status === 'success') startTimer();
+            });
+        }
+
+        startTimer();
+        document.getElementById('d1').focus();
+    </script>
+</body>
+</html>
