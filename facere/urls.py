@@ -1,4 +1,4 @@
-"""
+﻿"""
 URL configuration for facere project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
@@ -48,6 +48,9 @@ urlpatterns = [
     path('teacher/help/', views.teacher_help, name='teacher_help'),
     path('verify-otp/', views.verify_otp, name='verify_otp'),
     path('resend-otp/', views.resend_otp, name='resend_otp'),
+    path('forgot-password/', views.forgot_password, name='forgot_password'),
+    path('reset-password-otp/', views.reset_password_otp, name='reset_password_otp'),
+    path('reset-password-new/', views.reset_password_new, name='reset_password_new'),
     path('admin/', admin.site.urls),
     path('chatbot/', include('chatbot.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

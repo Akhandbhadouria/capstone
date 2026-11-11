@@ -21,6 +21,19 @@ This OTP is valid for 10 minutes.
 If you did not create an account, please ignore this email.
 
 \u2014 ClassAudit AI Team"""
+    elif purpose == 'reset':
+        subject = 'ClassAudit AI \u2014 Password Reset OTP'
+        body = f"""Hello,
+
+You requested to reset your ClassAudit AI password.
+
+Your OTP is: {otp}
+
+This OTP is valid for 10 minutes.
+
+If you did not request this, please ignore this email.
+
+\u2014 ClassAudit AI Team"""
     else:
         subject = 'ClassAudit AI \u2014 Your Login OTP'
         body = f"""Hello,

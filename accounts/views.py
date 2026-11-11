@@ -1750,3 +1750,72 @@ def teacher_analysis(request, teacher_id):
         logger.error("Teacher analysis error: %s", e, exc_info=True)
         messages.error(request, f"Error loading teacher analysis: {str(e)}")
         return redirect('principal_dashboard')
+
+
+def forgot_password(request):
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip().lower()
+        if not email:
+            return JsonResponse({'status': 'error', 'message': 'Email is required.'})
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return JsonResponse({'status': 'success', 'message': 'If this email is registered, an OTP has been sent.', 'redirect': '/reset-password-otp/'})
+        otp_obj = OTPVerification.generate_for_user(user, purpose='reset')
+        try:
+            send_otp_email(email, otp_obj.otp, purpose='reset')
+        except Exception as e:
+            logger.error(f'Password reset OTP email failed: {e}')
+        request.session['reset_user_id'] = user.id
+        return JsonResponse({'status': 'success', 'message': 'OTP sent to your email!', 'redirect': '/reset-password-otp/'})
+    return render(request, 'forgot_password.html')
+
+
+def reset_password_otp(request):
+    user_id = request.session.get('reset_user_id')
+    if not user_id:
+        return redirect('forgot_password')
+    if request.method == 'POST':
+        entered_otp = request.POST.get('otp', '').strip()
+        try:
+            user = User.objects.get(id=user_id)
+            otp_obj = OTPVerification.objects.filter(
+                user=user, purpose='reset', is_used=False
+            ).latest('created_at')
+            if otp_obj.is_valid() and otp_obj.otp == entered_otp:
+                otp_obj.is_used = True
+                otp_obj.save()
+                request.session['reset_verified_user_id'] = user.id
+                request.session.pop('reset_user_id', None)
+                return JsonResponse({'status': 'success', 'redirect': '/reset-password-new/'})
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Invalid or expired OTP.'})
+        except (User.DoesNotExist, OTPVerification.DoesNotExist):
+            return JsonResponse({'status': 'error', 'message': 'OTP not found. Please try again.'})
+    return render(request, 'reset_password_otp.html')
+
+
+def reset_password_new(request):
+    user_id = request.session.get('reset_verified_user_id')
+    if not user_id:
+        return redirect('forgot_password')
+    if request.method == 'POST':
+        password1 = request.POST.get('password1', '')
+        password2 = request.POST.get('password2', '')
+        if not password1 or not password2:
+            return JsonResponse({'status': 'error', 'message': 'Both fields are required.'})
+        if password1 != password2:
+            return JsonResponse({'status': 'error', 'message': 'Passwords do not match.'})
+        if len(password1) < 8:
+            return JsonResponse({'status': 'error', 'message': 'Password must be at least 8 characters.'})
+        if password1.isdigit() or password1.isalpha():
+            return JsonResponse({'status': 'error', 'message': 'Password must contain both letters and numbers.'})
+        try:
+            user = User.objects.get(id=user_id)
+            user.set_password(password1)
+            user.save()
+            request.session.pop('reset_verified_user_id', None)
+            return JsonResponse({'status': 'success', 'message': 'Password reset successful!', 'redirect': '/principal/login/'})
+        except User.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'User not found.'})
+    return render(request, 'reset_password_new.html')
