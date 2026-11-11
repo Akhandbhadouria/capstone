@@ -603,12 +603,17 @@ def teacher_profile(request):
 def previous_records_teacher(request):
     try:
         teacher = request.user.teacher
-        # All completed sessions
-        all_sessions = ClassSession.objects.filter(teacher=teacher, status='Completed').order_by('-start_time')
+        date_filter = request.GET.get('date', '').strip()
+        all_sessions = ClassSession.objects.filter(teacher=teacher, status='Completed')
+        if date_filter:
+            all_sessions = all_sessions.filter(start_time__date=date_filter)
+        all_sessions = all_sessions.order_by('-start_time')
         
         context = {
             'teacher': teacher,
-            'sessions': all_sessions
+            'sessions': all_sessions,
+            'class_history': all_sessions,
+            'date_filter': date_filter,
         }
         return render(request, 'previous_records_teacher.html', context)
     except (Teacher.DoesNotExist, AttributeError):
@@ -1819,3 +1824,93 @@ def reset_password_new(request):
         except User.DoesNotExist:
             return JsonResponse({'status': 'error', 'message': 'User not found.'})
     return render(request, 'reset_password_new.html')
+
+
+@login_required
+def save_lecture_summary(request):
+    """
+    AJAX endpoint called when teacher finishes a live class.
+    Saves speech transcript, generates AI lecture summary, marks session completed.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'})
+    
+    try:
+        teacher = getattr(request.user, 'teacher', None)
+        if not teacher:
+            return JsonResponse({'status': 'error', 'message': 'Teacher account required'})
+        
+        session_id = request.POST.get('session_id')
+        transcript = request.POST.get('transcript', '').strip()
+        
+        if session_id:
+            session = ClassSession.objects.filter(id=session_id, teacher=teacher).first()
+        else:
+            session = ClassSession.objects.filter(teacher=teacher, status='Ongoing').first()
+            
+        if not session:
+            return JsonResponse({'status': 'error', 'message': 'No active class session found'})
+            
+        subject = session.timetable.subject if session.timetable else "General Lecture"
+        
+        # Generate summary
+        from .utils.lecture_summary import generate_lecture_summary
+        result = generate_lecture_summary(transcript=transcript, subject=subject, teacher_name=teacher.name)
+        
+        # Save to session
+        session.lecture_transcript = transcript
+        session.lecture_summary = result.get('summary', '')
+        session.lecture_topics = result.get('topics', '')
+        session.has_voice_summary = True
+        session.status = 'Completed'
+        session.end_time = timezone.now()
+        session.save()
+        
+        return JsonResponse({
+            'status': 'success',
+            'session_id': session.id,
+            'subject': subject,
+            'topics': session.lecture_topics,
+            'summary': session.lecture_summary,
+            'transcript': session.lecture_transcript,
+            'word_count': result.get('word_count', 0),
+            'duration': str(session.total_active_duration),
+        })
+    except Exception as e:
+        logger.error("Error saving lecture summary: %s", e, exc_info=True)
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+
+@login_required
+def get_session_summary(request, session_id):
+    """
+    Fetch lecture summary & transcript for any completed session (Teacher or Principal).
+    """
+    try:
+        session = ClassSession.objects.filter(id=session_id).first()
+        if not session:
+            return JsonResponse({'status': 'error', 'message': 'Session not found'})
+            
+        user = request.user
+        is_owner_teacher = hasattr(user, 'teacher') and user.teacher == session.teacher
+        is_owner_principal = hasattr(user, 'principal') and user.principal == session.teacher.principal
+        
+        if not (is_owner_teacher or is_owner_principal or user.is_superuser):
+            return JsonResponse({'status': 'error', 'message': 'Access denied'})
+            
+        return JsonResponse({
+            'status': 'success',
+            'session_id': session.id,
+            'subject': session.timetable.subject if session.timetable else 'General Lecture',
+            'teacher_name': session.teacher.name,
+            'date': session.start_time.strftime('%B %d, %Y'),
+            'time': f"{session.start_time.strftime('%I:%M %p')} - {session.end_time.strftime('%I:%M %p')}" if session.end_time else session.start_time.strftime('%I:%M %p'),
+            'topics': session.lecture_topics,
+            'summary': session.lecture_summary,
+            'transcript': session.lecture_transcript,
+            'has_summary': session.has_voice_summary,
+            'active_duration': str(session.total_active_duration),
+        })
+    except Exception as e:
+        logger.error("Error fetching session summary: %s", e)
+        return JsonResponse({'status': 'error', 'message': str(e)})

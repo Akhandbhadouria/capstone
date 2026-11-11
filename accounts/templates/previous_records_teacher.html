@@ -5,14 +5,237 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Previous Records - {{ teacher.name }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    <title>Previous Records & Lecture Summaries - {{ teacher.name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-        rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="stylesheet" href="{% static 'css/teacher_theme.css' %}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
+    <style>
+        .btn-summary-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: none;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+            transition: all 0.2s ease;
+        }
+
+        .btn-summary-badge:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+            filter: brightness(1.05);
+        }
+
+        .badge-none {
+            color: var(--text-light);
+            font-size: 0.8rem;
+            font-style: italic;
+        }
+
+        /* ── Modal Styles for Previous Records ── */
+        .summary-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+
+        .summary-modal {
+            background: #ffffff;
+            width: 100%;
+            max-width: 800px;
+            max-height: 90vh;
+            border-radius: 26px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .summary-modal-header {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            position: relative;
+        }
+
+        .summary-modal-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            margin-bottom: 0.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .summary-modal-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 0.85rem;
+            color: #c7d2fe;
+            flex-wrap: wrap;
+        }
+
+        .summary-topics-row {
+            margin-top: 0.8rem;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .topic-pill {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .modal-tabs {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+            padding: 0 1.5rem;
+        }
+
+        .modal-tab-btn {
+            padding: 1rem 1.4rem;
+            border: none;
+            background: none;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #64748b;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-tab-btn.active {
+            color: #4f46e5;
+            border-bottom-color: #4f46e5;
+            background: white;
+        }
+
+        .summary-modal-body {
+            padding: 1.8rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+            font-size: 0.95rem;
+            line-height: 1.65;
+            color: #1e293b;
+        }
+
+        .summary-modal-body h3 {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 1.2rem 0 0.6rem;
+        }
+
+        .summary-modal-body h3:first-child { margin-top: 0; }
+        .summary-modal-body ul { margin-left: 1.4rem; margin-bottom: 1rem; }
+        .summary-modal-body li { margin-bottom: 0.4rem; }
+        .summary-modal-body p { margin-bottom: 0.9rem; }
+
+        .transcript-view {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 1.2rem;
+            font-size: 0.9rem;
+            color: #334155;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .summary-modal-footer {
+            padding: 1rem 2rem;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-secondary-action {
+            padding: 8px 16px;
+            border-radius: 12px;
+            border: 1px solid #cbd5e1;
+            background: white;
+            color: #334155;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary-action:hover {
+            background: #f1f5f9;
+        }
+
+        .btn-close-modal {
+            padding: 8px 18px;
+            border-radius: 12px;
+            border: none;
+            background: #4f46e5;
+            color: white;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .copy-toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(50px);
+            background: #0f172a;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            z-index: 10001;
+            opacity: 0;
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+        .copy-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
 </head>
 
 <body>
@@ -26,7 +249,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                 <div>
                     <h1 style="font-size: 2rem; margin-bottom: 0.5rem; font-weight: 700;">Previous Records</h1>
-                    <p style="color: var(--text-light);">View your past class sessions and attendance history</p>
+                    <p style="color: var(--text-light);">View your past class sessions, attendance & AI lecture summaries</p>
                 </div>
             </div>
 
@@ -39,8 +262,9 @@
                             <input type="date" name="date" value="{{ date_filter }}" onchange="this.form.submit()"
                                 style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; color: var(--text-dark); outline: none;">
                             {% if date_filter %}
-                            <a href="." style="color: #ef5350; font-size: 0.85rem; text-decoration: none;"><i
-                                    class="fas fa-times"></i> Clear</a>
+                            <a href="." style="color: #ef5350; font-size: 0.85rem; text-decoration: none;">
+                                <i class="fas fa-times"></i> Clear
+                            </a>
                             {% endif %}
                         </form>
                     </div>
@@ -55,6 +279,7 @@
                             <th>Session Time</th>
                             <th>Active Duration</th>
                             <th>Logins</th>
+                            <th>AI Summary</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -62,12 +287,21 @@
                         {% for session in class_history %}
                         <tr>
                             <td style="font-weight: 600;">{{ session.start_time|date:"M d, Y" }}</td>
-                            <td><span class="badge badge-blue">{{session.timetable.subject|default:"ExtraClass"}}</span>
+                            <td><span class="badge badge-blue">{{ session.timetable.subject|default:"Extra Class" }}</span></td>
+                            <td style="color: var(--text-light);">
+                                {{ session.start_time|time:"h:i A" }} - {{ session.end_time|time:"h:i A" }}
                             </td>
-                            <td style="color: var(--text-light);">{{ session.start_time|time:"h:i A" }}
-                                -{{session.end_time|time:"h:i A" }}</td>
                             <td style="font-weight: 700; color: #4caf50;">{{ session.total_active_duration }}</td>
                             <td style="color: var(--text-light);">{{ session.monitoring_resumption_count }}</td>
+                            <td>
+                                {% if session.has_voice_summary %}
+                                <button type="button" class="btn-summary-badge" onclick="openSessionSummaryModal({{ session.id }})">
+                                    <i class="fas fa-sparkles"></i> View Notes
+                                </button>
+                                {% else %}
+                                <span class="badge-none">-</span>
+                                {% endif %}
+                            </td>
                             <td><span class="status-badge status-done">Completed</span></td>
                         </tr>
                         {% endfor %}
@@ -107,26 +341,6 @@
                 </div>
                 <div class="calendar-grid" id="calGrid"></div>
             </div>
-            <script>
-                (function () {
-                    const M = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-                    const D = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                    const t = new Date(), grid = document.getElementById('calGrid'), title = document.getElementById('calTitle');
-                    let cm = t.getMonth(), cy = t.getFullYear();
-                    function render() {
-                        title.textContent = M[cm] + ' ' + cy;
-                        grid.innerHTML = '';
-                        D.forEach(d => { let e = document.createElement('div'); e.className = 'calendar-day-label'; e.textContent = d; grid.appendChild(e); });
-                        const first = new Date(cy, cm, 1).getDay(), off = first === 0 ? 6 : first - 1, days = new Date(cy, cm + 1, 0).getDate(), prev = new Date(cy, cm, 0).getDate();
-                        for (let i = off - 1; i >= 0; i--) { let e = document.createElement('div'); e.className = 'calendar-day inactive'; e.textContent = prev - i; grid.appendChild(e); }
-                        for (let d = 1; d <= days; d++) { let e = document.createElement('div'); e.className = 'calendar-day'; e.textContent = d; if (d === t.getDate() && cm === t.getMonth() && cy === t.getFullYear()) e.classList.add('today'); grid.appendChild(e); }
-                        const rem = (7 - (off + days) % 7) % 7;
-                        for (let i = 1; i <= rem; i++) { let e = document.createElement('div'); e.className = 'calendar-day inactive'; e.textContent = i; grid.appendChild(e); }
-                    }
-                    window.nav = function (d) { cm += d; if (cm > 11) { cm = 0; cy++; } if (cm < 0) { cm = 11; cy--; } render(); };
-                    render();
-                })();
-            </script>
 
             <!-- Help Widget -->
             <a href="{% url 'teacher_help' %}" style="text-decoration: none; color: inherit;">
@@ -140,6 +354,188 @@
             </a>
         </div>
     </div>
+
+    <!-- ── Summary Modal for Past Sessions ── -->
+    <div class="summary-modal-backdrop" id="sessionSummaryModal">
+        <div class="summary-modal">
+            <div class="summary-modal-header">
+                <div class="summary-modal-title">
+                    <i class="fas fa-sparkles" style="color: #facc15;"></i>
+                    <span id="modalSubject">Class Lecture</span>
+                </div>
+                <div class="summary-modal-meta">
+                    <span><i class="far fa-user"></i> Faculty: <span id="modalTeacher">{{ teacher.name }}</span></span>
+                    <span><i class="far fa-calendar-check"></i> <span id="modalSessionDate">--</span></span>
+                    <span><i class="far fa-clock"></i> Active: <span id="modalDuration">--</span></span>
+                </div>
+                <div class="summary-topics-row" id="modalTopics"></div>
+            </div>
+
+            <div class="modal-tabs">
+                <button type="button" class="modal-tab-btn active" id="tabSumBtn" onclick="switchPastModalTab('summary')">
+                    <i class="fas fa-file-lines"></i> Executive Summary & Notes
+                </button>
+                <button type="button" class="modal-tab-btn" id="tabTransBtn" onclick="switchPastModalTab('transcript')">
+                    <i class="fas fa-quote-left"></i> Spoken Transcript
+                </button>
+            </div>
+
+            <div class="summary-modal-body">
+                <div id="pastSummaryTabContent">Loading...</div>
+                <div id="pastTranscriptTabContent" style="display: none;">
+                    <div class="transcript-view" id="pastFullTranscript">Loading...</div>
+                </div>
+            </div>
+
+            <div class="summary-modal-footer">
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-secondary-action" onclick="copyPastSummary()">
+                        <i class="far fa-copy"></i> Copy Summary
+                    </button>
+                    <button type="button" class="btn-secondary-action" onclick="downloadPastNotes()">
+                        <i class="fas fa-file-arrow-down"></i> Download (.txt)
+                    </button>
+                </div>
+                <button type="button" class="btn-close-modal" onclick="closeSessionSummaryModal()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="copy-toast" id="recordsToast">
+        <i class="fas fa-check-circle" style="color: #10b981;"></i>
+        <span>Summary copied to clipboard!</span>
+    </div>
+
+    <script>
+        // Calendar logic
+        (function () {
+            const M = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const D = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const t = new Date(), grid = document.getElementById('calGrid'), title = document.getElementById('calTitle');
+            let cm = t.getMonth(), cy = t.getFullYear();
+            function render() {
+                title.textContent = M[cm] + ' ' + cy;
+                grid.innerHTML = '';
+                D.forEach(d => { let e = document.createElement('div'); e.className = 'calendar-day-label'; e.textContent = d; grid.appendChild(e); });
+                const first = new Date(cy, cm, 1).getDay(), off = first === 0 ? 6 : first - 1, days = new Date(cy, cm + 1, 0).getDate(), prev = new Date(cy, cm, 0).getDate();
+                for (let i = off - 1; i >= 0; i--) { let e = document.createElement('div'); e.className = 'calendar-day inactive'; e.textContent = prev - i; grid.appendChild(e); }
+                for (let d = 1; d <= days; d++) { let e = document.createElement('div'); e.className = 'calendar-day'; e.textContent = d; if (d === t.getDate() && cm === t.getMonth() && cy === t.getFullYear()) e.classList.add('today'); grid.appendChild(e); }
+                const rem = (7 - (off + days) % 7) % 7;
+                for (let i = 1; i <= rem; i++) { let e = document.createElement('div'); e.className = 'calendar-day inactive'; e.textContent = i; grid.appendChild(e); }
+            }
+            window.nav = function (d) { cm += d; if (cm > 11) { cm = 0; cy++; } if (cm < 0) { cm = 11; cy--; } render(); };
+            render();
+        })();
+
+        // ── Past Summary Modal Logic ──
+        let currentPastData = null;
+        const pastModal = document.getElementById('sessionSummaryModal');
+
+        function openSessionSummaryModal(sessionId) {
+            pastModal.style.display = 'flex';
+            document.getElementById('pastSummaryTabContent').innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Fetching lecture summary...</p>';
+            document.getElementById('pastFullTranscript').innerText = 'Loading...';
+
+            fetch(`/teacher/session-summary/${sessionId}/`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        currentPastData = data;
+                        document.getElementById('modalSubject').innerText = data.subject;
+                        document.getElementById('modalTeacher').innerText = data.teacher_name;
+                        document.getElementById('modalSessionDate').innerText = data.date;
+                        document.getElementById('modalDuration').innerText = data.active_duration || 'Completed';
+
+                        // Topics
+                        const topicsRow = document.getElementById('modalTopics');
+                        topicsRow.innerHTML = '';
+                        if (data.topics) {
+                            data.topics.split(',').forEach(topic => {
+                                const pill = document.createElement('span');
+                                pill.className = 'topic-pill';
+                                pill.innerHTML = `<i class="fas fa-hashtag" style="font-size:0.65rem;"></i> ${topic.trim()}`;
+                                topicsRow.appendChild(pill);
+                            });
+                        }
+
+                        // Summary
+                        document.getElementById('pastSummaryTabContent').innerHTML = formatMarkdown(data.summary || 'No summary recorded.');
+                        document.getElementById('pastFullTranscript').innerText = data.transcript || 'No transcript recorded.';
+                    } else {
+                        document.getElementById('pastSummaryTabContent').innerHTML = `<p style="color:#ef4444;">${data.message || 'Error loading summary.'}</p>`;
+                    }
+                })
+                .catch(err => {
+                    console.error("Error:", err);
+                    document.getElementById('pastSummaryTabContent').innerHTML = '<p style="color:#ef4444;">Network error fetching summary.</p>';
+                });
+        }
+
+        function closeSessionSummaryModal() {
+            pastModal.style.display = 'none';
+        }
+
+        function switchPastModalTab(tab) {
+            const btnSum = document.getElementById('tabSumBtn');
+            const btnTrans = document.getElementById('tabTransBtn');
+            const contentSum = document.getElementById('pastSummaryTabContent');
+            const contentTrans = document.getElementById('pastTranscriptTabContent');
+
+            if (tab === 'summary') {
+                btnSum.classList.add('active');
+                btnTrans.classList.remove('active');
+                contentSum.style.display = 'block';
+                contentTrans.style.display = 'none';
+            } else {
+                btnTrans.classList.add('active');
+                btnSum.classList.remove('active');
+                contentSum.style.display = 'none';
+                contentTrans.style.display = 'block';
+            }
+        }
+
+        function formatMarkdown(md) {
+            let html = md
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2 style="font-size:1.2rem;font-weight:800;margin-top:1rem;">$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1 style="font-size:1.35rem;font-weight:800;">$1</h1>')
+                .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+                .replace(/^\- (.*$)/gim, '<li>$1</li>')
+                .replace(/\n\n/gim, '</p><p>');
+
+            html = html.replace(/(<li>.*<\/li>)/gms, '<ul>$1</ul>');
+            return `<p>${html}</p>`;
+        }
+
+        function copyPastSummary() {
+            if (!currentPastData) return;
+            const text = `📚 ClassAudit AI - Lecture Notes\nSubject: ${currentPastData.subject}\nFaculty: ${currentPastData.teacher_name}\nDate: ${currentPastData.date}\n\n${currentPastData.summary}`;
+            navigator.clipboard.writeText(text).then(() => {
+                const toast = document.getElementById('recordsToast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2500);
+            });
+        }
+
+        function downloadPastNotes() {
+            if (!currentPastData) return;
+            const content = `CLASSAUDIT AI - LECTURE SUMMARY\n` +
+                            `Subject: ${currentPastData.subject}\nFaculty: ${currentPastData.teacher_name}\nDate: ${currentPastData.date}\n\n` +
+                            `SUMMARY:\n${currentPastData.summary}\n\nTRANSCRIPT:\n${currentPastData.transcript}\n`;
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${(currentPastData.subject || 'Lecture').replace(/\s+/g, '_')}_Summary.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
 </body>
 
 </html>

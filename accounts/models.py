@@ -109,6 +109,12 @@ class ClassSession(models.Model):
     status = models.CharField(max_length=20, default='Ongoing') # Ongoing, Completed
     monitoring_resumption_count = models.IntegerField(default=1) # Track sessions/logins
 
+    # Lecture Voice Recording & AI Summary
+    lecture_transcript = models.TextField(blank=True, default='')
+    lecture_summary = models.TextField(blank=True, default='')
+    lecture_topics = models.CharField(max_length=500, blank=True, default='')
+    has_voice_summary = models.BooleanField(default=False)
+
     def __str__(self):
         return f"{self.teacher.name} - {self.timetable.subject if self.timetable else 'Extra Class'} - {self.start_time.date()}"
 

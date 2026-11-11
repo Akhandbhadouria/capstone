@@ -5,10 +5,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Class Monitoring - {{ session.timetable.subject }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    <title>Live Class Monitoring & AI Lecture Recorder - {{ session.timetable.subject }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-        rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="stylesheet" href="{% static 'css/teacher_theme.css' %}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -24,20 +23,25 @@
     <div class="main-content">
         <!-- Left Section -->
         <div class="left-section">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
                 <div>
-                    <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--text-dark);">{{session.timetable.subject }}</h1>
-                    <p style="color: var(--text-light);">{{ session.start_time|date:"F j, Y" }} • Started at {{session.start_time|time:"g:i A" }}</p>
+                    <h1 style="font-size: 1.6rem; font-weight: 800; color: var(--text-dark); margin-bottom: 0.2rem;">
+                        {{ session.timetable.subject|default:"Class Session" }}
+                    </h1>
+                    <p style="color: var(--text-light); font-size: 0.9rem;">
+                        <i class="far fa-calendar-alt"></i> {{ session.start_time|date:"F j, Y" }} &bull; Started at {{ session.start_time|time:"g:i A" }}
+                    </p>
                 </div>
-                <a href="{% url 'end_class' %}" class="btn-primary"
-                    style="background: #ef4444; text-decoration: none; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">
-                    <i class="fas fa-stop-circle"></i> End Class
-                </a>
+                <button type="button" id="btnEndClass" class="btn-primary"
+                    style="background: #ef4444; border: none; cursor: pointer; text-decoration: none; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35); padding: 10px 20px; border-radius: 14px; font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-stop-circle"></i> End Class & Summarize
+                </button>
             </div>
 
+            <!-- Video & Live Face Monitoring -->
             <div class="video-container">
                 <div class="live-badge">
-                    <i class="fas fa-circle" style="font-size: 8px;"></i> LIVE
+                    <i class="fas fa-circle" style="font-size: 8px;"></i> LIVE CLASS
                 </div>
                 <video id="video" autoplay playsinline></video>
                 <canvas id="canvas" style="display: none;"></canvas>
@@ -46,38 +50,196 @@
 
         <!-- Right Section -->
         <div class="right-section">
+            <!-- Session Duration Card -->
             <div class="card"
-                style="background: white; padding: 2rem; border-radius: 24px; box-shadow: var(--shadow-md); text-align: center;">
-                <h3
-                    style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 0.5rem; text-transform: uppercase; font-weight: 700;">
-                    Session Duration</h3>
+                style="background: white; padding: 1.5rem; border-radius: 24px; box-shadow: var(--shadow-sm); text-align: center;">
+                <h3 style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 0.4rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">
+                    Session Duration
+                </h3>
                 <div class="status-value" id="sessionTimer">00:00:00</div>
             </div>
 
+            <!-- Active Presence Card -->
             <div class="card"
-                style="background: white; padding: 2rem; border-radius: 24px; box-shadow: var(--shadow-md); text-align: center;">
-                <h3
-                    style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 0.5rem; text-transform: uppercase; font-weight: 700;">
-                    Active Presence</h3>
-                <div class="status-value" id="activeTimer" style="color: var(--primary-blue);">0m 0s</div>
-                <p style="margin: 5px 0 0; font-size: 0.8rem; color: var(--text-light);">Total authorized time</p>
+                style="background: white; padding: 1.5rem; border-radius: 24px; box-shadow: var(--shadow-sm); text-align: center; margin-top: 1rem;">
+                <h3 style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 0.4rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">
+                    Active Verified Presence
+                </h3>
+                <div class="status-value" id="activeTimer" style="color: #4f46e5;">0m 0s</div>
+                <p style="margin: 4px 0 0; font-size: 0.78rem; color: var(--text-light);">Face verified every 5s</p>
             </div>
 
             <div id="statusIndicator" class="status-indicator status-warning">
-                <i class="fas fa-spinner fa-spin"></i> Initializing...
+                <i class="fas fa-spinner fa-spin"></i> Initializing Face Detection...
             </div>
 
-            <!-- Help Widget -->
-         
+            <!-- ══════════════════════════════════════════════════════════════
+                 🎙️ SMART AI VOICE RECORDER & LIVE TRANSCRIBER CARD
+                 ══════════════════════════════════════════════════════════════ -->
+            <div class="voice-recorder-card">
+                <div class="rec-header">
+                    <div class="rec-title">
+                        <i class="fas fa-microphone-lines" style="color: #6366f1;"></i> AI Lecture Audio
+                    </div>
+                    <div class="rec-badge" id="recBadge">
+                        <div class="rec-dot"></div>
+                        <span id="recStatusText">RECORDING</span>
+                    </div>
+                </div>
+
+                <!-- Animated Audio Waveform -->
+                <div class="waveform-box">
+                    <canvas id="waveformCanvas"></canvas>
+                </div>
+
+                <!-- Stats: Elapsed & Word Count -->
+                <div class="rec-stats-row">
+                    <div class="stat-item">
+                        <i class="far fa-clock"></i>
+                        <span id="audioTimer">00:00</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-comment-dots"></i>
+                        <span>Spoken: <span class="stat-highlight" id="wordCount">0</span> words</span>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="rec-controls">
+                    <button type="button" class="btn-mic-toggle active" id="btnToggleMic">
+                        <i class="fas fa-microphone" id="micIcon"></i>
+                        <span id="micBtnText">Mic Active</span>
+                    </button>
+                    <select class="lang-select" id="langSelect" title="Speech Recognition Language">
+                        <option value="en-IN" selected>English (IN)</option>
+                        <option value="en-US">English (US)</option>
+                        <option value="hi-IN">Hindi (HI)</option>
+                    </select>
+                </div>
+
+                <!-- Real-time Speech-to-Text Preview -->
+                <div class="transcript-preview-box" id="transcriptBox">
+                    <span class="transcript-empty" id="transcriptPlaceholder">
+                        <i class="fas fa-ear-listen fa-fade"></i> Listening for lecture audio... start speaking.
+                    </span>
+                    <span id="transcriptContent"></span>
+                </div>
+            </div>
         </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════════════════
+         ✨ FULLSCREEN AI PROCESSING LOADER
+         ══════════════════════════════════════════════════════════════ -->
+    <div class="ai-processing-overlay" id="aiLoader">
+        <div class="ai-orb-wrapper">
+            <div class="ai-orb"></div>
+            <div class="ai-orb-inner">
+                <i class="fas fa-brain"></i>
+            </div>
+        </div>
+        <div class="ai-processing-title">ClassAudit AI Generating Summary</div>
+        <div class="ai-processing-sub">Transcribing audio stream & extracting curriculum takeaways...</div>
+
+        <div class="ai-steps">
+            <div class="ai-step completed" id="step1">
+                <i class="fas fa-check-circle"></i> Spoken audio stream captured
+            </div>
+            <div class="ai-step active" id="step2">
+                <i class="fas fa-spinner fa-spin"></i> Identifying topics & core definitions
+            </div>
+            <div class="ai-step" id="step3">
+                <i class="far fa-circle"></i> Compiling executive summary & action items
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         📋 INTERACTIVE POST-CLASS LECTURE SUMMARY MODAL
+         ══════════════════════════════════════════════════════════════ -->
+    <div class="summary-modal-backdrop" id="summaryModal">
+        <div class="summary-modal">
+            <!-- Modal Header -->
+            <div class="summary-modal-header">
+                <div class="summary-modal-title">
+                    <i class="fas fa-sparkles" style="color: #facc15;"></i>
+                    <span id="modalSubjectTitle">{{ session.timetable.subject|default:"Class Lecture" }}</span>
+                </div>
+                <div class="summary-modal-meta">
+                    <span><i class="far fa-user"></i> Faculty: {{ session.teacher.name }}</span>
+                    <span><i class="far fa-calendar-check"></i> <span id="modalDate">{{ session.start_time|date:"M d, Y" }}</span></span>
+                    <span><i class="far fa-clock"></i> Active: <span id="modalActiveTime">0m</span></span>
+                    <span><i class="fas fa-comment-dots"></i> <span id="modalWordCount">0</span> spoken words</span>
+                </div>
+                <div class="summary-topics-row" id="modalTopicsRow">
+                    <!-- Topic Pills rendered via JS -->
+                </div>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <div class="modal-tabs">
+                <button type="button" class="modal-tab-btn active" id="tabSummaryBtn" onclick="switchModalTab('summary')">
+                    <i class="fas fa-file-lines"></i> Executive Summary & Notes
+                </button>
+                <button type="button" class="modal-tab-btn" id="tabTranscriptBtn" onclick="switchModalTab('transcript')">
+                    <i class="fas fa-quote-left"></i> Full Spoken Transcript
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="summary-modal-body" id="modalBody">
+                <div id="summaryTabContent">
+                    <!-- Rendered AI Summary HTML -->
+                </div>
+                <div id="transcriptTabContent" style="display: none;">
+                    <div class="transcript-view" id="modalFullTranscript">
+                        <!-- Full transcript text -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="summary-modal-footer">
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-secondary-action" onclick="copyLectureSummary()">
+                        <i class="far fa-copy"></i> Copy Summary
+                    </button>
+                    <button type="button" class="btn-secondary-action" onclick="downloadLectureNotes()">
+                        <i class="fas fa-file-arrow-down"></i> Download Notes (.txt)
+                    </button>
+                </div>
+                <button type="button" class="btn-finish-done" onclick="finishAndRedirect()">
+                    <i class="fas fa-check"></i> Done & Go to Dashboard
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Copy Toast -->
+    <div class="copy-toast" id="copyToast">
+        <i class="fas fa-check-circle" style="color: #10b981;"></i>
+        <span>Summary copied to clipboard!</span>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         JAVASCRIPT LOGIC
+         ══════════════════════════════════════════════════════════════ -->
     <script>
+        // ── Camera & Face Tracking ──
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const statusIndicator = document.getElementById('statusIndicator');
         const activeTimer = document.getElementById('activeTimer');
         const sessionTimer = document.getElementById('sessionTimer');
+
+        let sessionSeconds = 0;
+        setInterval(() => {
+            sessionSeconds++;
+            const h = Math.floor(sessionSeconds / 3600).toString().padStart(2, '0');
+            const m = Math.floor((sessionSeconds % 3600) / 60).toString().padStart(2, '0');
+            const s = (sessionSeconds % 60).toString().padStart(2, '0');
+            sessionTimer.innerText = `${h}:${m}:${s}`;
+        }, 1000);
 
         // Start Camera
         navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
@@ -91,59 +253,451 @@
                 statusIndicator.innerHTML = '<i class="fas fa-exclamation-circle"></i> Camera Error';
             });
 
-        // Simple Session Timer
-        let sessionSeconds = 0;
-        setInterval(() => {
-            sessionSeconds++;
-            const h = Math.floor(sessionSeconds / 3600).toString().padStart(2, '0');
-            const m = Math.floor((sessionSeconds % 3600) / 60).toString().padStart(2, '0');
-            const s = (sessionSeconds % 60).toString().padStart(2, '0');
-            sessionTimer.innerText = `${h}:${m}:${s}`;
-        }, 1000);
-
         function startTracking() {
             setInterval(() => {
                 captureAndVerify();
-            }, 5000); 
+            }, 5000);
         }
 
         function captureAndVerify() {
+            if (!video.videoWidth || !video.videoHeight) return;
             const context = canvas.getContext('2d');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             const imageData = canvas.toDataURL('image/jpeg', 0.8);
-
             const formData = new FormData();
             formData.append('face_image', imageData);
 
-            // We need to fetch update_live_attendance. The URL might need to be resolved via template tag if not hardcoded.
-            // Using logic from original file: '{% url "update_live_attendance" %}'
             fetch('{% url "update_live_attendance" %}', {
                 method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
                 body: formData
             })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        statusIndicator.className = 'status-indicator status-active';
-                        statusIndicator.innerHTML = '<i class="fas fa-check-circle"></i> Authorized';
-                        activeTimer.innerText = data.duration;
-                    } else if (data.status === 'warning') {
-                        statusIndicator.className = 'status-indicator status-warning';
-                        statusIndicator.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${data.message}`;
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    statusIndicator.className = 'status-indicator status-active';
+                    statusIndicator.innerHTML = '<i class="fas fa-check-circle"></i> Verified Present';
+                    activeTimer.innerText = data.duration;
+                } else if (data.status === 'warning') {
+                    statusIndicator.className = 'status-indicator status-warning';
+                    statusIndicator.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${data.message}`;
+                } else {
+                    statusIndicator.className = 'status-indicator status-error';
+                    statusIndicator.innerHTML = '<i class="fas fa-times-circle"></i> Face Verification Failed';
+                }
+            })
+            .catch(err => console.error("Tracking error:", err));
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // 🎙️ VOICE RECORDER & LIVE SPEECH TRANSCRIBER
+        // ══════════════════════════════════════════════════════════════
+        let speechRecognition = null;
+        let isMicActive = true;
+        let fullTranscript = '';
+        let audioSeconds = 0;
+        let audioTimerInterval = null;
+        let latestGeneratedData = null;
+
+        const wordCountEl = document.getElementById('wordCount');
+        const transcriptPlaceholder = document.getElementById('transcriptPlaceholder');
+        const transcriptContent = document.getElementById('transcriptContent');
+        const transcriptBox = document.getElementById('transcriptBox');
+        const audioTimerEl = document.getElementById('audioTimer');
+        const btnToggleMic = document.getElementById('btnToggleMic');
+        const micIcon = document.getElementById('micIcon');
+        const micBtnText = document.getElementById('micBtnText');
+        const recBadge = document.getElementById('recBadge');
+        const recStatusText = document.getElementById('recStatusText');
+        const langSelect = document.getElementById('langSelect');
+
+        // Audio Timer
+        audioTimerInterval = setInterval(() => {
+            if (isMicActive) {
+                audioSeconds++;
+                const m = Math.floor(audioSeconds / 60).toString().padStart(2, '0');
+                const s = (audioSeconds % 60).toString().padStart(2, '0');
+                audioTimerEl.innerText = `${m}:${s}`;
+            }
+        }, 1000);
+
+        // Speech Recognition Setup (Web Speech API)
+        const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (SpeechRecognitionClass) {
+            initSpeechRecognition();
+        } else {
+            transcriptPlaceholder.innerHTML = '<i class="fas fa-info-circle"></i> Speech-to-text API not supported on this browser (Chrome / Edge recommended). Typing fallback available.';
+        }
+
+        function initSpeechRecognition() {
+            speechRecognition = new SpeechRecognitionClass();
+            speechRecognition.continuous = true;
+            speechRecognition.interimResults = true;
+            speechRecognition.lang = langSelect.value;
+
+            speechRecognition.onresult = (event) => {
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    const text = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        fullTranscript += (fullTranscript ? ' ' : '') + text.trim();
                     } else {
-                        statusIndicator.className = 'status-indicator status-error';
-                        statusIndicator.innerHTML = '<i class="fas fa-times-circle"></i> Verification Failed';
+                        interimTranscript += text;
                     }
-                })
-                .catch(err => {
-                    console.error("Tracking error:", err);
+                }
+
+                // Update UI
+                const displayTranscript = fullTranscript + (interimTranscript ? ' ' + interimTranscript : '');
+                if (displayTranscript.trim()) {
+                    transcriptPlaceholder.style.display = 'none';
+                    transcriptContent.innerText = displayTranscript;
+                    transcriptBox.scrollTop = transcriptBox.scrollHeight;
+
+                    // Word count
+                    const words = displayTranscript.trim().split(/\s+/).filter(w => w.length > 0);
+                    wordCountEl.innerText = words.length;
+                }
+            };
+
+            speechRecognition.onerror = (event) => {
+                console.warn("Speech recognition notice:", event.error);
+                if (event.error === 'not-allowed') {
+                    recStatusText.innerText = 'MIC BLOCKED';
+                    recBadge.style.background = '#fee2e2';
+                    recBadge.style.color = '#ef4444';
+                }
+            };
+
+            speechRecognition.onend = () => {
+                // Keep listening continuously if mic is active
+                if (isMicActive) {
+                    try { speechRecognition.start(); } catch (e) {}
+                }
+            };
+
+            try {
+                speechRecognition.start();
+            } catch (e) {
+                console.warn("Initial speech recognition start:", e);
+            }
+        }
+
+        langSelect.addEventListener('change', () => {
+            if (speechRecognition) {
+                speechRecognition.lang = langSelect.value;
+                if (isMicActive) {
+                    try {
+                        speechRecognition.stop();
+                        setTimeout(() => speechRecognition.start(), 200);
+                    } catch (e) {}
+                }
+            }
+        });
+
+        // Toggle Mic Button
+        btnToggleMic.addEventListener('click', () => {
+            isMicActive = !isMicActive;
+            if (isMicActive) {
+                btnToggleMic.className = 'btn-mic-toggle active';
+                micIcon.className = 'fas fa-microphone';
+                micBtnText.innerText = 'Mic Active';
+                recBadge.className = 'rec-badge';
+                recBadge.style.background = '#fee2e2';
+                recBadge.style.color = '#ef4444';
+                recStatusText.innerText = 'RECORDING';
+                if (speechRecognition) {
+                    try { speechRecognition.start(); } catch (e) {}
+                }
+            } else {
+                btnToggleMic.className = 'btn-mic-toggle muted';
+                micIcon.className = 'fas fa-microphone-slash';
+                micBtnText.innerText = 'Mic Paused';
+                recBadge.style.background = '#f1f5f9';
+                recBadge.style.color = '#64748b';
+                recStatusText.innerText = 'PAUSED';
+                if (speechRecognition) {
+                    try { speechRecognition.stop(); } catch (e) {}
+                }
+            }
+        });
+
+        // ══════════════════════════════════════════════════════════════
+        // 🌊 REAL-TIME AUDIO WAVEFORM CANVAS VISUALIZER
+        // ══════════════════════════════════════════════════════════════
+        const waveformCanvas = document.getElementById('waveformCanvas');
+        const waveCtx = waveformCanvas.getContext('2d');
+        let audioContext = null;
+        let analyser = null;
+        let dataArray = null;
+
+        function resizeCanvas() {
+            waveformCanvas.width = waveformCanvas.clientWidth * window.devicePixelRatio || 300;
+            waveformCanvas.height = waveformCanvas.clientHeight * window.devicePixelRatio || 54;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Attempt Web Audio API Analyser via mic stream
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 64;
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                drawWaveform();
+            })
+            .catch(() => {
+                // Ambient sine wave fallback
+                drawAmbientWaveform();
+            });
+
+        function drawWaveform() {
+            requestAnimationFrame(drawWaveform);
+            const w = waveformCanvas.width;
+            const h = waveformCanvas.height;
+            waveCtx.clearRect(0, 0, w, h);
+
+            if (!isMicActive || !analyser) {
+                drawAmbientWaveformStatic(w, h);
+                return;
+            }
+
+            analyser.getByteFrequencyData(dataArray);
+
+            const barCount = 28;
+            const barWidth = (w / barCount) - 3;
+            const gradient = waveCtx.createLinearGradient(0, h, 0, 0);
+            gradient.addColorStop(0, '#6366f1');
+            gradient.addColorStop(0.5, '#a855f7');
+            gradient.addColorStop(1, '#ec4899');
+
+            for (let i = 0; i < barCount; i++) {
+                const value = dataArray[i % dataArray.length];
+                const percent = Math.max(0.1, value / 255);
+                const barHeight = percent * h * 0.9;
+                const x = i * (barWidth + 3);
+                const y = (h - barHeight) / 2;
+
+                waveCtx.fillStyle = gradient;
+                waveCtx.beginPath();
+                waveCtx.roundRect(x, y, barWidth, barHeight, 3);
+                waveCtx.fill();
+            }
+        }
+
+        let ambientOffset = 0;
+        function drawAmbientWaveform() {
+            requestAnimationFrame(drawAmbientWaveform);
+            const w = waveformCanvas.width;
+            const h = waveformCanvas.height;
+            waveCtx.clearRect(0, 0, w, h);
+            drawAmbientWaveformStatic(w, h);
+        }
+
+        function drawAmbientWaveformStatic(w, h) {
+            ambientOffset += 0.04;
+            const barCount = 28;
+            const barWidth = (w / barCount) - 3;
+
+            for (let i = 0; i < barCount; i++) {
+                const waveHeight = isMicActive 
+                    ? (Math.sin(ambientOffset + i * 0.4) * 0.35 + 0.5) * (h * 0.7)
+                    : 4;
+                const x = i * (barWidth + 3);
+                const y = (h - waveHeight) / 2;
+
+                waveCtx.fillStyle = isMicActive ? '#818cf8' : '#334155';
+                waveCtx.beginPath();
+                waveCtx.roundRect(x, y, barWidth, Math.max(3, waveHeight), 2);
+                waveCtx.fill();
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // 🏁 END CLASS & AI LECTURE SUMMARIZATION PIPELINE
+        // ══════════════════════════════════════════════════════════════
+        const btnEndClass = document.getElementById('btnEndClass');
+        const aiLoader = document.getElementById('aiLoader');
+        const summaryModal = document.getElementById('summaryModal');
+
+        btnEndClass.addEventListener('click', () => {
+            // Confirm with teacher
+            if (!confirm("Are you sure you want to end this class session? AI will generate the lecture summary now.")) {
+                return;
+            }
+
+            // Stop speech recognition
+            isMicActive = false;
+            if (speechRecognition) {
+                try { speechRecognition.stop(); } catch (e) {}
+            }
+
+            // Show AI Loader Overlay
+            aiLoader.style.display = 'flex';
+
+            // Animated steps
+            const step2 = document.getElementById('step2');
+            const step3 = document.getElementById('step3');
+
+            setTimeout(() => {
+                step2.className = 'ai-step completed';
+                step2.innerHTML = '<i class="fas fa-check-circle"></i> Topics & core definitions extracted';
+                step3.className = 'ai-step active';
+                step3.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Finalizing notes & action items...';
+            }, 1200);
+
+            // POST to backend save_lecture_summary
+            const formData = new FormData();
+            formData.append('transcript', fullTranscript);
+            formData.append('session_id', '{{ session.id }}');
+
+            fetch('{% url "save_lecture_summary" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                aiLoader.style.display = 'none';
+
+                if (data.status === 'success') {
+                    latestGeneratedData = data;
+                    showSummaryModal(data);
+                } else {
+                    alert("Class ended. " + (data.message || "Summary generation notice."));
+                    window.location.href = "{% url 'teacher_dashboard' %}";
+                }
+            })
+            .catch(err => {
+                console.error("Summary error:", err);
+                aiLoader.style.display = 'none';
+                alert("Class ended successfully. Redirecting to dashboard...");
+                window.location.href = "{% url 'teacher_dashboard' %}";
+            });
+        });
+
+        // ══════════════════════════════════════════════════════════════
+        // 📋 POPULATE & DISPLAY SUMMARY MODAL
+        // ══════════════════════════════════════════════════════════════
+        function showSummaryModal(data) {
+            document.getElementById('modalSubjectTitle').innerText = data.subject || "Class Lecture";
+            document.getElementById('modalWordCount').innerText = data.word_count || 0;
+            document.getElementById('modalActiveTime').innerText = data.duration || "Verified";
+
+            // Render Topic Pills
+            const topicsRow = document.getElementById('modalTopicsRow');
+            topicsRow.innerHTML = '';
+            if (data.topics) {
+                const topicArr = data.topics.split(',').map(t => t.trim()).filter(t => t.length > 0);
+                topicArr.forEach(topic => {
+                    const pill = document.createElement('span');
+                    pill.className = 'topic-pill';
+                    pill.innerHTML = `<i class="fas fa-hashtag" style="font-size: 0.65rem; opacity: 0.8;"></i> ${topic}`;
+                    topicsRow.appendChild(pill);
                 });
+            }
+
+            // Render Markdown Summary (Clean HTML converter)
+            const summaryHtml = formatMarkdownToHtml(data.summary || "No summary generated.");
+            document.getElementById('summaryTabContent').innerHTML = summaryHtml;
+
+            // Full Transcript
+            document.getElementById('modalFullTranscript').innerText = data.transcript || "No spoken transcript recorded during this session.";
+
+            // Show Modal
+            summaryModal.style.display = 'flex';
+        }
+
+        function switchModalTab(tab) {
+            const btnSummary = document.getElementById('tabSummaryBtn');
+            const btnTranscript = document.getElementById('tabTranscriptBtn');
+            const tabSummary = document.getElementById('summaryTabContent');
+            const tabTranscript = document.getElementById('transcriptTabContent');
+
+            if (tab === 'summary') {
+                btnSummary.classList.add('active');
+                btnTranscript.classList.remove('active');
+                tabSummary.style.display = 'block';
+                tabTranscript.style.display = 'none';
+            } else {
+                btnTranscript.classList.add('active');
+                btnSummary.classList.remove('active');
+                tabSummary.style.display = 'none';
+                tabTranscript.style.display = 'block';
+            }
+        }
+
+        // Lightweight Markdown to HTML Formatter
+        function formatMarkdownToHtml(md) {
+            let html = md
+                // Headers
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2 style="font-size: 1.25rem; font-weight:800; margin-top:1rem;">$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1 style="font-size: 1.4rem; font-weight:800;">$1</h1>')
+                // Bold & Italic
+                .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+                // Bullets
+                .replace(/^\- (.*$)/gim, '<li>$1</li>')
+                // Line breaks
+                .replace(/\n\n/gim, '</p><p>');
+
+            // Wrap contiguous <li> with <ul>
+            html = html.replace(/(<li>.*<\/li>)/gms, '<ul>$1</ul>');
+            return `<p>${html}</p>`;
+        }
+
+        function copyLectureSummary() {
+            if (!latestGeneratedData) return;
+            const textToCopy = `📚 ClassAudit AI - Lecture Summary\n` +
+                               `Subject: ${latestGeneratedData.subject}\n` +
+                               `Topics: ${latestGeneratedData.topics}\n\n` +
+                               `${latestGeneratedData.summary}\n\n` +
+                               `Full Transcript:\n${latestGeneratedData.transcript}`;
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const toast = document.getElementById('copyToast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2500);
+            });
+        }
+
+        function downloadLectureNotes() {
+            if (!latestGeneratedData) return;
+            const content = `========================================================\n` +
+                            `  CLASSAUDIT AI - SMART LECTURE SUMMARY & CLASS NOTES   \n` +
+                            `========================================================\n\n` +
+                            `Subject: ${latestGeneratedData.subject}\n` +
+                            `Topics: ${latestGeneratedData.topics}\n` +
+                            `Word Count: ${latestGeneratedData.word_count} spoken words\n\n` +
+                            `--------------------------------------------------------\n` +
+                            `EXECUTIVE SUMMARY\n` +
+                            `--------------------------------------------------------\n` +
+                            `${latestGeneratedData.summary}\n\n` +
+                            `--------------------------------------------------------\n` +
+                            `FULL SPOKEN LECTURE TRANSCRIPT\n` +
+                            `--------------------------------------------------------\n` +
+                            `${latestGeneratedData.transcript}\n`;
+
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${(latestGeneratedData.subject || 'Lecture').replace(/\s+/g, '_')}_Notes.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function finishAndRedirect() {
+            window.location.href = "{% url 'previous_records_teacher' %}";
         }
 
         function getCookie(name) {
