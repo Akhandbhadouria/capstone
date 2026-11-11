@@ -429,6 +429,7 @@ def teacher_dashboard(request):
         
         # Check for any ongoing sessions
         active_session = ClassSession.objects.filter(teacher=teacher, status='Ongoing').first()
+        last_session = ClassSession.objects.filter(teacher=teacher, status='Completed').order_by('-start_time').first()
         
         from chatbot.rag_engine import get_document_count
         principal = teacher.principal
@@ -439,6 +440,7 @@ def teacher_dashboard(request):
             'timetable': timetable,
             'grouped_schedule': grouped_schedule,
             'active_session': active_session,
+            'last_session': last_session,
             # ── Chatbot widget ──
             'is_principal': False,
             'widget_user_name': teacher.name,
@@ -1914,3 +1916,105 @@ def get_session_summary(request, session_id):
     except Exception as e:
         logger.error("Error fetching session summary: %s", e)
         return JsonResponse({'status': 'error', 'message': str(e)})
+
+
+
+@principal_required
+def principal_lecture_audits(request):
+    """
+    Principal Portal: Comprehensive Academic Audit & Lecture Review Hub.
+    Allows Principal to inspect what every teacher taught, daily and class-wise,
+    with an active 50-day audit retention policy.
+    """
+    try:
+        from django.utils import timezone
+        import datetime
+        from django.db.models import Q
+        
+        principal = request.user.principal
+        teachers = principal.teachers.all().order_by('name')
+        
+        # Filter: Retention Days (minimum 50 days)
+        try:
+            days = int(request.GET.get('days', 50))
+        except (ValueError, TypeError):
+            days = 50
+            
+        cutoff = timezone.now() - datetime.timedelta(days=days)
+        
+        # Base Query within the retention window
+        sessions = ClassSession.objects.filter(
+            teacher__principal=principal,
+            status='Completed',
+            start_time__gte=cutoff
+        ).select_related('teacher', 'timetable').order_by('-start_time')
+        
+        # Filter: Specific Teacher
+        selected_teacher = request.GET.get('teacher', '').strip()
+        if selected_teacher:
+            sessions = sessions.filter(teacher_id=selected_teacher)
+            
+        # Filter: Specific Date
+        selected_date = request.GET.get('date', '').strip()
+        if selected_date:
+            try:
+                date_dt = datetime.datetime.strptime(selected_date, '%Y-%m-%d').date()
+                sessions = sessions.filter(start_time__date=date_dt)
+            except ValueError:
+                pass
+                
+        # Filter: Text Search across topics, subjects & teacher names
+        search_query = request.GET.get('search', '').strip()
+        if search_query:
+            sessions = sessions.filter(
+                Q(timetable__subject__icontains=search_query) |
+                Q(lecture_topics__icontains=search_query) |
+                Q(lecture_transcript__icontains=search_query) |
+                Q(teacher__name__icontains=search_query)
+            )
+
+        # Metrics for Principal Overview
+        total_sessions = sessions.count()
+        audited_with_ai = sessions.filter(has_voice_summary=True).count()
+        coverage_pct = int((audited_with_ai / total_sessions * 100)) if total_sessions > 0 else 0
+        
+        # Calculate total active hours taught
+        total_seconds = sum([s.total_active_duration.total_seconds() for s in sessions if s.total_active_duration], 0)
+        total_hours = round(total_seconds / 3600, 1)
+
+        context = {
+            'sessions': sessions,
+            'teachers': teachers,
+            'selected_days': days,
+            'selected_teacher': selected_teacher,
+            'selected_date': selected_date,
+            'search_query': search_query,
+            'total_sessions': total_sessions,
+            'audited_with_ai': audited_with_ai,
+            'coverage_pct': coverage_pct,
+            'total_hours': total_hours,
+            'retention_min_days': 50,
+        }
+        return render(request, 'principal_lecture_audits.html', context)
+    except Exception as e:
+        logger.error("Error in principal_lecture_audits: %s", e, exc_info=True)
+        messages.error(request, "Failed to load lecture audit reports.")
+        return redirect('principal_dashboard')
+
+
+@principal_required
+def purge_old_audits(request):
+    """
+    Allows Principal to trigger an automated cleanup of audit records 
+    older than the 50-day compliance retention window.
+    """
+    if request.method == 'POST':
+        try:
+            from .utils.lecture_summary import purge_old_lecture_records
+            deleted = purge_old_lecture_records(principal=request.user.principal, days=50)
+            messages.success(request, f"Cleaned up {deleted} audit records older than 50 days. Active compliance window preserved.")
+        except Exception as e:
+            logger.error("Purge error: %s", e)
+            messages.error(request, f"Error pruning audit records: {str(e)}")
+            
+    return redirect('principal_lecture_audits')

@@ -140,6 +140,11 @@
         <i class="fas fa-user-plus"></i>
         <span>Add Teacher</span>
     </a>
+    <a href="{% url 'principal_lecture_audits' %}"
+        class="nav-item {% if request.resolver_match.url_name == 'principal_lecture_audits' %}active{% endif %}">
+        <i class="fas fa-file-waveform"></i>
+        <span>Lecture Audits</span>
+    </a>
 
     <div class="logout-item">
         <div class="menu-label">Account</div>

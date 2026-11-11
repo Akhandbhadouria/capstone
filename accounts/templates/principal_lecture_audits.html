@@ -1,0 +1,838 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic & Lecture Audits - Principal Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/admin_theme.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
+    <style>
+        .audit-container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .retention-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            background: #ecfdf5;
+            color: #059669;
+            border: 1px solid #a7f3d0;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        /* Metrics Row */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+        }
+
+        .metric-icon {
+            width: 54px;
+            height: 54px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .metric-val {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #1f2937;
+            line-height: 1.1;
+        }
+
+        .metric-lbl {
+            font-size: 0.85rem;
+            color: #6b7280;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        /* Filter Section */
+        .filter-card {
+            background: white;
+            border-radius: 20px;
+            padding: 1.4rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+            margin-bottom: 2rem;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .filter-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) auto;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .filter-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #4b5563;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-input {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            font-size: 0.9rem;
+            color: #1f2937;
+            background: #f9fafb;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .filter-input:focus {
+            border-color: #6366f1;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        .btn-filter {
+            padding: 10px 20px;
+            border-radius: 12px;
+            border: none;
+            background: #1f2937;
+            color: white;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            height: 42px;
+        }
+
+        .btn-filter:hover {
+            background: #374151;
+        }
+
+        /* Table Card */
+        .table-card {
+            background: white;
+            border-radius: 24px;
+            padding: 1.8rem;
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+
+        .audit-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92rem;
+        }
+
+        .audit-table th {
+            text-align: left;
+            padding: 14px 16px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6b7280;
+            font-weight: 800;
+            border-bottom: 2px solid #f3f4f6;
+        }
+
+        .audit-table td {
+            padding: 16px;
+            border-bottom: 1px solid #f3f4f6;
+            vertical-align: middle;
+        }
+
+        .audit-table tr:hover {
+            background: #fcfcfd;
+        }
+
+        .teacher-info-box {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .teacher-avatar-mini {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            background: #e0e7ff;
+            color: #4338ca;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.9rem;
+        }
+
+        .topic-tag {
+            display: inline-block;
+            background: #eef2ff;
+            color: #4f46e5;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            margin: 2px;
+        }
+
+        .btn-audit-review {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+            transition: all 0.2s;
+        }
+
+        .btn-audit-review:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+        }
+
+        .status-badge-ai {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .status-badge-no {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #f3f4f6;
+            color: #9ca3af;
+        }
+
+        /* ── Summary Modal ── */
+        .summary-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+
+        .summary-modal {
+            background: white;
+            width: 100%;
+            max-width: 820px;
+            max-height: 90vh;
+            border-radius: 26px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .summary-modal-header {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+            color: white;
+            padding: 1.6rem 2rem;
+        }
+
+        .summary-modal-title {
+            font-size: 1.4rem;
+            font-weight: 800;
+            margin-bottom: 0.4rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .summary-modal-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 0.85rem;
+            color: #c7d2fe;
+            flex-wrap: wrap;
+        }
+
+        .modal-tabs {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+            padding: 0 1.5rem;
+        }
+
+        .modal-tab-btn {
+            padding: 1rem 1.4rem;
+            border: none;
+            background: none;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #64748b;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-tab-btn.active {
+            color: #4f46e5;
+            border-bottom-color: #4f46e5;
+            background: white;
+        }
+
+        .summary-modal-body {
+            padding: 1.8rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+            font-size: 0.95rem;
+            line-height: 1.65;
+            color: #1e293b;
+        }
+
+        .summary-modal-body h3 {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 1.2rem 0 0.6rem;
+        }
+        .summary-modal-body h3:first-child { margin-top: 0; }
+        .summary-modal-body ul { margin-left: 1.4rem; margin-bottom: 1rem; }
+        .summary-modal-body li { margin-bottom: 0.4rem; }
+
+        .transcript-view {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 1.2rem;
+            font-size: 0.9rem;
+            color: #334155;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .summary-modal-footer {
+            padding: 1.2rem 2rem;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-action-light {
+            padding: 8px 16px;
+            border-radius: 12px;
+            border: 1px solid #cbd5e1;
+            background: white;
+            color: #334155;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .copy-toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(50px);
+            background: #0f172a;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            z-index: 10001;
+            opacity: 0;
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+        .copy-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+
+<body>
+    {% include 'sidebar_principal.html' %}
+
+    <div class="main-content" style="margin-left: var(--sidebar-width); background: #fdfbf7; min-height: 100vh;">
+        <div class="audit-container">
+            <!-- Header -->
+            <div class="header-section">
+                <div>
+                    <h1 style="font-size: 1.85rem; font-weight: 800; color: #111827; margin-bottom: 0.4rem;">
+                        <i class="fas fa-file-waveform" style="color: #6366f1;"></i> Academic & Lecture Audits
+                    </h1>
+                    <p style="color: #6b7280; font-size: 0.95rem;">
+                        Institutional surveillance & AI lecture curriculum tracking across all faculty classes
+                    </p>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <div class="retention-badge">
+                        <i class="fas fa-shield-halved"></i>
+                        <span>{{ retention_min_days }}-Day Audit Compliance Active</span>
+                    </div>
+                    <form method="POST" action="{% url 'purge_old_audits' %}" onsubmit="return confirm('Clean lecture records older than 50 days? Active 50-day records will remain untouched.')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-action-light" style="color: #b91c1c; border-color: #fecaca; background: #fff;">
+                            <i class="fas fa-trash-can"></i> Prune >50d Records
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            {% if messages %}
+            {% for msg in messages %}
+            <div style="padding: 12px 18px; border-radius: 12px; margin-bottom: 1.5rem; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; font-size: 0.9rem; font-weight: 600;">
+                <i class="fas fa-circle-check"></i> {{ msg }}
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            <!-- Metrics Grid -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-icon" style="background: #eef2ff; color: #4f46e5;">
+                        <i class="fas fa-chalkboard-user"></i>
+                    </div>
+                    <div>
+                        <div class="metric-val">{{ total_sessions }}</div>
+                        <div class="metric-lbl">Total Completed Classes</div>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-icon" style="background: #ecfdf5; color: #10b981;">
+                        <i class="fas fa-sparkles"></i>
+                    </div>
+                    <div>
+                        <div class="metric-val">{{ audited_with_ai }}</div>
+                        <div class="metric-lbl">AI Voice Summaries Generated</div>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-icon" style="background: #fdf4ff; color: #c084fc;">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <div>
+                        <div class="metric-val">{{ coverage_pct }}%</div>
+                        <div class="metric-lbl">Curriculum Audit Coverage</div>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-icon" style="background: #fff7ed; color: #f97316;">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div>
+                        <div class="metric-val">{{ total_hours }} hrs</div>
+                        <div class="metric-lbl">Faculty Teaching Hours</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="filter-card">
+                <form method="GET" class="filter-form">
+                    <div class="filter-group">
+                        <label>Retention Window</label>
+                        <select name="days" class="filter-input" onchange="this.form.submit()">
+                            <option value="7" {% if selected_days == 7 %}selected{% endif %}>Last 7 Days</option>
+                            <option value="15" {% if selected_days == 15 %}selected{% endif %}>Last 15 Days</option>
+                            <option value="30" {% if selected_days == 30 %}selected{% endif %}>Last 30 Days</option>
+                            <option value="50" {% if selected_days == 50 %}selected{% endif %}>Last 50 Days (Standard)</option>
+                            <option value="60" {% if selected_days == 60 %}selected{% endif %}>Last 60 Days</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Filter Faculty</label>
+                        <select name="teacher" class="filter-input" onchange="this.form.submit()">
+                            <option value="">All Teachers ({{ teachers.count }})</option>
+                            {% for t in teachers %}
+                            <option value="{{ t.id }}" {% if selected_teacher == t.id|stringformat:"s" %}selected{% endif %}>
+                                {{ t.name }} ({{ t.department }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Specific Date</label>
+                        <input type="date" name="date" value="{{ selected_date }}" class="filter-input" onchange="this.form.submit()">
+                    </div>
+
+                    <div class="filter-group" style="min-width: 200px;">
+                        <label>Search Topics / Subjects</label>
+                        <input type="text" name="search" value="{{ search_query }}" placeholder="e.g. Newton, Thermodynamics..." class="filter-input">
+                    </div>
+
+                    <div style="display: flex; gap: 8px;">
+                        <button type="submit" class="btn-filter">
+                            <i class="fas fa-magnifying-glass"></i> Filter
+                        </button>
+                        {% if selected_teacher or selected_date or search_query or selected_days != 50 %}
+                        <a href="{% url 'principal_lecture_audits' %}" class="btn-filter" style="background: #e5e7eb; color: #4b5563; text-decoration: none; justify-content: center;">
+                            Reset
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+
+            <!-- Table of Class Lectures -->
+            <div class="table-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
+                    <h2 style="font-size: 1.25rem; font-weight: 800; color: #111827;">
+                        Class Sessions & Curriculum History
+                    </h2>
+                    <span style="font-size: 0.85rem; color: #6b7280; font-weight: 600;">
+                        Showing {{ sessions.count }} audit entries
+                    </span>
+                </div>
+
+                {% if sessions %}
+                <div style="overflow-x: auto;">
+                    <table class="audit-table">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Faculty</th>
+                                <th>Subject</th>
+                                <th>Topics Taught</th>
+                                <th>Duration</th>
+                                <th>AI Summary</th>
+                                <th style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in sessions %}
+                            <tr>
+                                <td>
+                                    <div style="font-weight: 700; color: #111827;">
+                                        {{ s.start_time|date:"M d, Y" }}
+                                    </div>
+                                    <div style="font-size: 0.8rem; color: #6b7280;">
+                                        {{ s.start_time|time:"h:i A" }} - {{ s.end_time|time:"h:i A" }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="teacher-info-box">
+                                        <div class="teacher-avatar-mini">
+                                            {{ s.teacher.name|make_list|first }}
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 700; color: #1f2937;">{{ s.teacher.name }}</div>
+                                            <div style="font-size: 0.75rem; color: #6b7280;">{{ s.teacher.department }} Dept</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span style="font-weight: 700; color: #374151;">
+                                        {{ s.timetable.subject|default:"Extra Class" }}
+                                    </span>
+                                </td>
+                                <td style="max-width: 280px;">
+                                    {% if s.lecture_topics %}
+                                        {% for t in s.lecture_topics.split|slice:":3" %}
+                                        <span class="topic-tag">{{ t }}</span>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span style="color: #9ca3af; font-size: 0.8rem; font-style: italic;">No topics tagged</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span style="font-weight: 700; color: #059669;">
+                                        {{ s.total_active_duration }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if s.has_voice_summary %}
+                                    <span class="status-badge-ai">
+                                        <i class="fas fa-sparkles"></i> AI Notes Ready
+                                    </span>
+                                    {% else %}
+                                    <span class="status-badge-no">
+                                        <i class="far fa-circle"></i> No Audio
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: right;">
+                                    {% if s.has_voice_summary %}
+                                    <button type="button" class="btn-audit-review" onclick="openAuditModal({{ s.id }})">
+                                        <i class="fas fa-eye"></i> Audit Class
+                                    </button>
+                                    {% else %}
+                                    <span style="color: #9ca3af; font-size: 0.85rem;">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div style="text-align: center; padding: 3rem 1rem; color: #9ca3af;">
+                    <i class="fas fa-clipboard-question" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                    <p style="font-size: 1.1rem; font-weight: 600; color: #4b5563;">No class audit records found for this period</p>
+                    <p style="font-size: 0.85rem; margin-top: 4px;">Classes conducted by faculty with live audio recording will appear here automatically.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Audit Modal ── -->
+    <div class="summary-modal-backdrop" id="auditModal">
+        <div class="summary-modal">
+            <div class="summary-modal-header">
+                <div class="summary-modal-title">
+                    <i class="fas fa-file-shield" style="color: #a7f3d0;"></i>
+                    <span id="modalSubject">Lecture Audit</span>
+                </div>
+                <div class="summary-modal-meta">
+                    <span><i class="far fa-user"></i> Faculty: <strong id="modalFaculty" style="color: white;">--</strong></span>
+                    <span><i class="far fa-calendar"></i> Date: <strong id="modalDate" style="color: white;">--</strong></span>
+                    <span><i class="far fa-clock"></i> Duration: <strong id="modalDuration" style="color: white;">--</strong></span>
+                </div>
+                <div style="margin-top: 0.8rem; display: flex; gap: 6px; flex-wrap: wrap;" id="modalTopics"></div>
+            </div>
+
+            <div class="modal-tabs">
+                <button type="button" class="modal-tab-btn active" id="btnTabSummary" onclick="switchAuditTab('summary')">
+                    <i class="fas fa-file-lines"></i> Executive Lecture Summary & Notes
+                </button>
+                <button type="button" class="modal-tab-btn" id="btnTabTranscript" onclick="switchAuditTab('transcript')">
+                    <i class="fas fa-quote-left"></i> Full Audio Transcript
+                </button>
+            </div>
+
+            <div class="summary-modal-body">
+                <div id="tabContentSummary">Loading audit...</div>
+                <div id="tabContentTranscript" style="display: none;">
+                    <div class="transcript-view" id="modalTranscript">Loading transcript...</div>
+                </div>
+            </div>
+
+            <div class="summary-modal-footer">
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-action-light" onclick="copyAuditReport()">
+                        <i class="far fa-copy"></i> Copy Audit
+                    </button>
+                    <button type="button" class="btn-action-light" onclick="downloadAuditReport()">
+                        <i class="fas fa-download"></i> Download Report (.txt)
+                    </button>
+                </div>
+                <button type="button" class="btn-filter" style="height: 38px; border-radius: 12px;" onclick="closeAuditModal()">
+                    Close Audit
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="copy-toast" id="auditToast">
+        <i class="fas fa-check-circle" style="color: #10b981;"></i>
+        <span>Audit report copied to clipboard!</span>
+    </div>
+
+    <script>
+        let currentAuditData = null;
+        const auditModal = document.getElementById('auditModal');
+
+        function openAuditModal(sessionId) {
+            auditModal.style.display = 'flex';
+            document.getElementById('tabContentSummary').innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Loading academic audit data...</p>';
+            document.getElementById('modalTranscript').innerText = 'Loading...';
+
+            fetch(`/teacher/session-summary/${sessionId}/`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        currentAuditData = data;
+                        document.getElementById('modalSubject').innerText = data.subject || "Class Lecture";
+                        document.getElementById('modalFaculty').innerText = data.teacher_name || "--";
+                        document.getElementById('modalDate').innerText = `${data.date} (${data.time})`;
+                        document.getElementById('modalDuration').innerText = data.active_duration || 'Completed';
+
+                        // Topics
+                        const topicsRow = document.getElementById('modalTopics');
+                        topicsRow.innerHTML = '';
+                        if (data.topics) {
+                            data.topics.split(',').forEach(topic => {
+                                const pill = document.createElement('span');
+                                pill.style.cssText = 'background: rgba(255,255,255,0.18); color: white; padding: 2px 10px; border-radius: 10px; font-size: 0.72rem; font-weight: 700;';
+                                pill.innerHTML = `<i class="fas fa-hashtag" style="font-size:0.6rem;"></i> ${topic.trim()}`;
+                                topicsRow.appendChild(pill);
+                            });
+                        }
+
+                        // Summary
+                        document.getElementById('tabContentSummary').innerHTML = formatMarkdown(data.summary || 'No summary recorded.');
+                        document.getElementById('modalTranscript').innerText = data.transcript || 'No transcript recorded.';
+                    } else {
+                        document.getElementById('tabContentSummary').innerHTML = `<p style="color:#ef4444;">${data.message || 'Error loading audit.'}</p>`;
+                    }
+                })
+                .catch(err => {
+                    console.error("Audit fetch error:", err);
+                    document.getElementById('tabContentSummary').innerHTML = '<p style="color:#ef4444;">Network error fetching audit data.</p>';
+                });
+        }
+
+        function closeAuditModal() {
+            auditModal.style.display = 'none';
+        }
+
+        function switchAuditTab(tab) {
+            const btnSum = document.getElementById('btnTabSummary');
+            const btnTrans = document.getElementById('btnTabTranscript');
+            const contentSum = document.getElementById('tabContentSummary');
+            const contentTrans = document.getElementById('tabContentTranscript');
+
+            if (tab === 'summary') {
+                btnSum.classList.add('active');
+                btnTrans.classList.remove('active');
+                contentSum.style.display = 'block';
+                contentTrans.style.display = 'none';
+            } else {
+                btnTrans.classList.add('active');
+                btnSum.classList.remove('active');
+                contentSum.style.display = 'none';
+                contentTrans.style.display = 'block';
+            }
+        }
+
+        function formatMarkdown(md) {
+            let html = md
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2 style="font-size:1.2rem;font-weight:800;margin-top:1rem;">$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1 style="font-size:1.35rem;font-weight:800;">$1</h1>')
+                .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+                .replace(/^\- (.*$)/gim, '<li>$1</li>')
+                .replace(/\n\n/gim, '</p><p>');
+
+            html = html.replace(/(<li>.*<\/li>)/gms, '<ul>$1</ul>');
+            return `<p>${html}</p>`;
+        }
+
+        function copyAuditReport() {
+            if (!currentAuditData) return;
+            const text = `📋 CLASSAUDIT AI - ACADEMIC LECTURE AUDIT REPORT\n` +
+                         `Subject: ${currentAuditData.subject}\n` +
+                         `Faculty: ${currentAuditData.teacher_name}\n` +
+                         `Date: ${currentAuditData.date} (${currentAuditData.time})\n` +
+                         `Verified Active Duration: ${currentAuditData.active_duration}\n\n` +
+                         `==================================================\n` +
+                         `CURRICULUM SUMMARY & WHAT WAS TAUGHT:\n` +
+                         `==================================================\n` +
+                         `${currentAuditData.summary}\n\n` +
+                         `==================================================\n` +
+                         `SPOKEN LECTURE TRANSCRIPT:\n` +
+                         `==================================================\n` +
+                         `${currentAuditData.transcript}\n`;
+
+            navigator.clipboard.writeText(text).then(() => {
+                const toast = document.getElementById('auditToast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2500);
+            });
+        }
+
+        function downloadAuditReport() {
+            if (!currentAuditData) return;
+            const text = `CLASSAUDIT AI - OFFICIAL INSTITUTIONAL LECTURE AUDIT\n` +
+                         `Subject: ${currentAuditData.subject}\n` +
+                         `Faculty: ${currentAuditData.teacher_name}\n` +
+                         `Date: ${currentAuditData.date}\n` +
+                         `Active Time: ${currentAuditData.active_duration}\n\n` +
+                         `SUMMARY OF INSTRUCTION:\n${currentAuditData.summary}\n\n` +
+                         `FULL LECTURE TRANSCRIPT:\n${currentAuditData.transcript}\n`;
+
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Audit_${(currentAuditData.teacher_name || 'Faculty').replace(/\s+/g, '_')}_${(currentAuditData.subject || 'Class').replace(/\s+/g, '_')}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+
+</html>

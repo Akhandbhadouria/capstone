@@ -1,13 +1,16 @@
 """
-Smart AI Lecture Summarizer for ClassAudit AI.
+Smart AI Lecture Summarizer & Audit Retention Engine for ClassAudit AI.
 - Generates structured executive lecture summaries, key takeaways, and action items.
 - Uses Groq LLaMA 3.3 if GROQ_API_KEY is configured.
 - Provides an intelligent educational NLP fallback engine for zero-dependency / offline execution.
+- Manages 50-day audit retention and cleanup policies.
 """
 
 import os
 import re
+import datetime
 import logging
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -141,23 +144,19 @@ def _generate_fallback_summary(text: str, subject: str, teacher_name: str, word_
 
     topics_str = ", ".join(topics_list)
 
-    # Build structured Markdown
     topics_bullets = "\n".join([f"- **{t}**" for t in topics_list])
 
-    # Core concepts block
     if concept_sentences:
         core_concepts = "\n".join([f"- {s}" for s in concept_sentences[:5]])
     else:
         sample = sentences[:3] if sentences else ["Key foundational concepts were discussed during the lecture."]
         core_concepts = "\n".join([f"- {s}" for s in sample])
 
-    # Summary paragraphs
     if general_sentences:
         selected_overview = " ".join(general_sentences[:4])
     else:
         selected_overview = " ".join(sentences[:4]) if sentences else f"The lecture focused on core principles in {subject}."
 
-    # Assignments
     if assignment_sentences:
         assignments_block = "\n".join([f"- 📌 {s}" for s in assignment_sentences[:3]])
     else:
@@ -185,3 +184,24 @@ The session maintained active pacing with real-time spoken engagement recorded a
         'summary': summary_md.strip(),
         'word_count': word_count
     }
+
+
+def purge_old_lecture_records(principal=None, days: int = 50) -> int:
+    """
+    Safely prunes completed class sessions older than `days` (default 50 days retention).
+    Ensures portal database performance remains optimal while strictly adhering to the 
+    institutional 50-day audit compliance policy.
+    Returns the number of deleted records.
+    """
+    try:
+        from accounts.models import ClassSession
+        cutoff = timezone.now() - datetime.timedelta(days=days)
+        qs = ClassSession.objects.filter(status='Completed', start_time__lt=cutoff)
+        if principal:
+            qs = qs.filter(teacher__principal=principal)
+        deleted_count, _ = qs.delete()
+        logger.info("Purged %d class session records older than %d days.", deleted_count, days)
+        return deleted_count
+    except Exception as e:
+        logger.error("Failed to purge old records: %s", e)
+        return 0
