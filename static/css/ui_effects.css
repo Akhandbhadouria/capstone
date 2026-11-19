@@ -1,0 +1,274 @@
+/* ══════════════════════════════════════════════════════════════
+   🚀 CLASSAUDIT AI - MODERN UI/UX EFFECTS & MICRO-INTERACTIONS
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 1. Modern Sleek Custom Scrollbar ── */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(241, 245, 249, 0.6);
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 99px;
+    transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* ── 2. Card Glassmorphism & 3D Hover Lift ── */
+.card,
+.role-card,
+.stat-card,
+.teacher-card,
+.quick-card {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.3s ease !important;
+    position: relative;
+}
+
+.card:hover,
+.role-card:hover,
+.stat-card:hover,
+.teacher-card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 18px 36px -12px rgba(99, 102, 241, 0.18),
+                0 4px 12px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* ── 3. High-Tech Shimmer Sweep on Buttons ── */
+.btn-primary,
+.btn-cta,
+.btn-secondary,
+#captureBtn,
+#submitBtn {
+    position: relative;
+    overflow: hidden !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.btn-primary:hover,
+.btn-cta:hover,
+#captureBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px -4px rgba(99, 102, 241, 0.35) !important;
+}
+
+.btn-primary:active,
+.btn-cta:active,
+#captureBtn:active {
+    transform: scale(0.97) !important;
+}
+
+.btn-primary::after,
+.btn-cta::after,
+#captureBtn::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -60%;
+    width: 40%;
+    height: 200%;
+    background: linear-gradient(
+        60deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.35) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    transform: rotate(25deg);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.btn-primary:hover::after,
+.btn-cta:hover::after,
+#captureBtn:hover::after {
+    opacity: 1;
+    animation: btnShimmer 1.1s cubic-bezier(0.19, 1, 0.22, 1) infinite;
+}
+
+@keyframes btnShimmer {
+    0% {
+        left: -60%;
+    }
+    100% {
+        left: 140%;
+    }
+}
+
+/* ── 4. Glowing AI Biometric Scanner HUD ── */
+.ai-scanner-hud {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Corner Reticle Brackets */
+.hud-corner {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border-color: #38bdf8;
+    border-style: solid;
+    border-width: 0;
+    filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.8));
+    transition: all 0.3s ease;
+}
+
+.hud-tl {
+    top: 18px;
+    left: 18px;
+    border-top-width: 3px;
+    border-left-width: 3px;
+    border-top-left-radius: 8px;
+}
+
+.hud-tr {
+    top: 18px;
+    right: 18px;
+    border-top-width: 3px;
+    border-right-width: 3px;
+    border-top-right-radius: 8px;
+}
+
+.hud-bl {
+    bottom: 18px;
+    left: 18px;
+    border-bottom-width: 3px;
+    border-left-width: 3px;
+    border-bottom-left-radius: 8px;
+}
+
+.hud-br {
+    bottom: 18px;
+    right: 18px;
+    border-bottom-width: 3px;
+    border-right-width: 3px;
+    border-bottom-right-radius: 8px;
+}
+
+/* Biometric Target Face Oval */
+.hud-target-oval {
+    width: 200px;
+    height: 260px;
+    border: 2px dashed rgba(56, 189, 248, 0.45);
+    border-radius: 50% / 45%;
+    position: relative;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.15) inset;
+    animation: hudOvalPulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes hudOvalPulse {
+    0% {
+        border-color: rgba(56, 189, 248, 0.35);
+        box-shadow: 0 0 10px rgba(56, 189, 248, 0.1) inset;
+        transform: scale(0.98);
+    }
+    100% {
+        border-color: rgba(56, 189, 248, 0.75);
+        box-shadow: 0 0 25px rgba(56, 189, 248, 0.25) inset;
+        transform: scale(1.02);
+    }
+}
+
+/* Moving Neon Laser Scan Beam */
+.hud-scan-beam {
+    position: absolute;
+    width: 85%;
+    height: 3px;
+    background: linear-gradient(
+        90deg,
+        rgba(56, 189, 248, 0) 0%,
+        rgba(56, 189, 248, 0.95) 50%,
+        rgba(56, 189, 248, 0) 100%
+    );
+    box-shadow: 0 0 18px 2px rgba(56, 189, 248, 0.85);
+    top: 15%;
+    animation: hudLaserScan 2.6s ease-in-out infinite;
+}
+
+@keyframes hudLaserScan {
+    0% {
+        top: 15%;
+        opacity: 0.1;
+    }
+    15% {
+        opacity: 1;
+    }
+    85% {
+        opacity: 1;
+    }
+    100% {
+        top: 85%;
+        opacity: 0.1;
+    }
+}
+
+/* Floating AI HUD Status Pill */
+.hud-status-pill {
+    position: absolute;
+    bottom: 22px;
+    background: rgba(15, 23, 42, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 6px 14px;
+    border-radius: 99px;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    color: #e0f2fe;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    text-transform: uppercase;
+}
+
+.hud-live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 10px #22c55e;
+    animation: hudPulseDot 1.4s infinite ease-in-out;
+}
+
+@keyframes hudPulseDot {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.4;
+        transform: scale(0.85);
+    }
+}
+
+/* ── 5. Page Load Fade-In Animation ── */
+.hero,
+.main-content,
+.form-side,
+.split-layout {
+    animation: uiFadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes uiFadeInUp {
+    0% {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
