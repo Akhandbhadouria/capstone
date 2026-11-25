@@ -1,8 +1,9 @@
-﻿"""
+"""
 RAG Engine for ClassAudit AI Chatbot.
 - Per-principal ChromaDB collections (each school has its own knowledge base).
 - Supports PDF, Markdown, and TXT files.
 - Uses sentence-transformers for embeddings and Groq (LLaMA 3.3 70B) for generation.
+- Multi-turn conversation memory: rolling 6-message window (3 user/assistant pairs).
 """
 
 import os
@@ -31,7 +32,7 @@ except ImportError:
     Groq = None
     GROQ_AVAILABLE = False
 
-# â”€â”€ Singletons â”€â”€
+# ── Singletons ──
 _embedding_model = None
 _chroma_client = None
 _groq_client = None
@@ -40,7 +41,13 @@ _groq_client = None
 def _get_embedding_model() -> SentenceTransformer:
     global _embedding_model
     if _embedding_model is None:
-        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+        try:
+            _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+        except Exception:
+            # Offline fallback: load from local cache only
+            _embedding_model = SentenceTransformer(
+                "all-MiniLM-L6-v2", local_files_only=True
+            )
     return _embedding_model
 
 
@@ -73,7 +80,7 @@ def _get_collection(principal_id: int):
     )
 
 
-# â”€â”€ Text Extraction â”€â”€
+# ── Text Extraction ──
 
 def _extract_text_from_file(file_path: str) -> str:
     """Extract raw text from PDF, Markdown, or TXT files."""
@@ -98,7 +105,8 @@ def _extract_text_from_file(file_path: str) -> str:
 
 def _clean_text(text: str) -> str:
     """Strip markdown syntax for cleaner embedding."""
-    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    # Strip indented headings (e.g. "  ## Heading")
+    text = re.sub(r'^[ \t]*#{1,6}\s+', '', text, flags=re.MULTILINE)
     text = re.sub(r'\*{1,2}([^*]+)\*{1,2}', r'\1', text)
     text = re.sub(r'`{1,3}[^`]*`{1,3}', '', text, flags=re.DOTALL)
     text = re.sub(r'\|[-| :]+\|', '', text)
@@ -107,7 +115,7 @@ def _clean_text(text: str) -> str:
     return text.strip()
 
 
-def _chunk_text(text: str, chunk_size: int = 600, overlap: int = 100) -> list[str]:
+def _chunk_text(text: str, chunk_size: int = 600, overlap: int = 100) -> list:
     """Split text into overlapping chunks on paragraph boundaries."""
     paragraphs = re.split(r'\n\n+', text)
     chunks = []
@@ -142,7 +150,7 @@ def _chunk_text(text: str, chunk_size: int = 600, overlap: int = 100) -> list[st
     return [c for c in chunks if len(c.strip()) > 30]
 
 
-# â”€â”€ Ingestion â”€â”€
+# ── Ingestion ──
 
 def ingest_file_for_principal(
     principal_id: int,
@@ -199,9 +207,9 @@ def delete_file_from_principal(principal_id: int, filename: str) -> None:
         pass
 
 
-# â”€â”€ Retrieval â”€â”€
+# ── Retrieval ──
 
-def retrieve_context(query: str, principal_id: int, n_results: int = 5) -> list[dict]:
+def retrieve_context(query: str, principal_id: int, n_results: int = 5) -> list:
     """Retrieve top-N relevant chunks from the principal's collection."""
     embed_model = _get_embedding_model()
     collection = _get_collection(principal_id)
@@ -235,11 +243,13 @@ def retrieve_context(query: str, principal_id: int, n_results: int = 5) -> list[
     return chunks
 
 
-# â”€â”€ Generation â”€â”€
+# ── Generation ──
 
-SYSTEM_PROMPT = """You are the ClassAudit AI Institutional Assistant â€” a professional, helpful, and accurate assistant for teachers and principals at an educational institution.
+SYSTEM_PROMPT = """You are the ClassAudit AI Institutional Assistant — a professional, helpful, and accurate assistant for teachers and principals at an educational institution.
 
 You answer questions exclusively based on the provided institutional documents: policies, guidelines, handbooks, and system guides.
+
+You are given a conversation history (prior turns) and a new user question. Use the history to resolve follow-up questions and pronouns (e.g. "it", "that policy", "how many?"), but ground every factual claim strictly in the retrieved Context below.
 
 Rules you MUST follow:
 1. Answer ONLY from the provided Context. Do not invent policies or rules.
@@ -247,10 +257,15 @@ Rules you MUST follow:
 3. Keep responses clear, structured, and professional.
 4. When citing a rule, reference the document name (e.g., "According to the Attendance Policy...").
 5. Use bullet points or numbered steps for procedural answers.
-6. Be concise â€” do not repeat information unnecessarily."""
+6. Be concise — do not repeat information unnecessarily.
+7. If the user's question is a follow-up (e.g. "what about teachers?", "how many?"), interpret it in light of the previous conversation turns before answering."""
 
 
-def generate_answer(query: str, context_chunks: list[dict]) -> str:
+def generate_answer(
+    query: str,
+    context_chunks: list,
+    conversation_history: list = None,
+) -> str:
     """Generate an answer using Groq LLaMA 3.3 70B from retrieved context."""
     client = _get_groq_client()
 
@@ -260,40 +275,68 @@ def generate_answer(query: str, context_chunks: list[dict]) -> str:
 
     user_message = f"CONTEXT FROM INSTITUTIONAL DOCUMENTS:\n{context_text}\n\nUSER QUESTION:\n{query}"
 
+    # Build message list: system + rolling history (last 6 messages) + current user turn
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    if conversation_history:
+        for turn in conversation_history[-6:]:
+            role = turn.get("role")
+            content = turn.get("content", "")
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
+
+    messages.append({"role": "user", "content": user_message})
+
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_message},
-            ],
+            messages=messages,
             temperature=0.3,
             max_tokens=1024,
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        return f"âš ï¸ Error generating response: {str(e)}"
+        return f"⚠️ Error generating response: {str(e)}"
 
 
-# â”€â”€ Main Entry Point â”€â”€
+# ── Main Entry Point ──
 
-def chat(query: str, principal_id: int) -> dict:
+def chat(
+    query: str,
+    principal_id: int,
+    conversation_history: list = None,
+) -> dict:
     """
-    RAG chat â€” retrieves from principal's own knowledge base and generates answer.
+    RAG chat — retrieves from principal's own knowledge base and generates answer.
+    Accepts an optional conversation_history list of {"role": ..., "content": ...} dicts.
     """
     if not query or not query.strip():
         return {"answer": "Please ask a question.", "sources": []}
 
     try:
-        context_chunks = retrieve_context(query, principal_id, n_results=5)
+        # Contextual query augmentation for short follow-up questions
+        search_query = query
+        if conversation_history and len(query.split()) <= 4:
+            # Find the most recent user message to prepend as context
+            for turn in reversed(conversation_history):
+                if turn.get("role") == "user":
+                    search_query = f"{turn['content']} {query}"
+                    break
+
+        context_chunks = retrieve_context(search_query, principal_id, n_results=5)
 
         if not context_chunks:
             return {
-                "answer": "ðŸ“­ No documents have been uploaded to your institution's knowledge base yet.\n\nIf you are a **Principal**, please go to **Principal Dashboard â†’ Manage Documents** to upload your school's policy files.\n\nIf you are a **Teacher**, please contact your Principal.",
+                "answer": (
+                    "🔭 No documents have been uploaded to your institution's knowledge base yet.\n\n"
+                    "If you are a **Principal**, please go to **Principal Dashboard → Manage Documents** "
+                    "to upload your school's policy files.\n\n"
+                    "If you are a **Teacher**, please contact your Principal."
+                ),
                 "sources": []
             }
 
-        answer = generate_answer(query, context_chunks)
+        answer = generate_answer(query, context_chunks, conversation_history=conversation_history)
 
         # Deduplicate sources
         seen = set()
@@ -310,7 +353,7 @@ def chat(query: str, principal_id: int) -> dict:
         return {"answer": answer, "sources": sources}
 
     except Exception as e:
-        return {"answer": f"âš ï¸ An error occurred: {str(e)}", "sources": []}
+        return {"answer": f"⚠️ An error occurred: {str(e)}", "sources": []}
 
 
 def get_document_count(principal_id: int) -> int:

@@ -52,7 +52,7 @@ def chatbot_page(request):
 @login_required
 @require_http_methods(["POST"])
 def chat_api(request):
-    """POST /chatbot/api/ — accepts a query, returns RAG answer."""
+    """POST /chatbot/api/ — accepts a query + history, returns RAG answer + updated history."""
     principal_id = _get_principal_id(request)
     if not principal_id:
         return JsonResponse({"error": "Could not identify your institution."}, status=400)
@@ -66,13 +66,42 @@ def chat_api(request):
         if len(query) > 1000:
             return JsonResponse({"error": "Query too long. Max 1000 characters."}, status=400)
 
-        result = rag_engine.chat(query, principal_id)
-        return JsonResponse({"answer": result["answer"], "sources": result["sources"]})
+        # Read history from request body, fall back to session
+        history = body.get("history") or request.session.get("chatbot_history", [])
+        if not isinstance(history, list):
+            history = []
+
+        result = rag_engine.chat(query, principal_id, conversation_history=history)
+
+        # Append the new turn and cap at 6 messages (3 user+assistant pairs)
+        history.append({"role": "user", "content": query})
+        history.append({"role": "assistant", "content": result["answer"]})
+        history = history[-6:]
+
+        # Persist to session
+        request.session["chatbot_history"] = history
+        request.session.modified = True
+
+        return JsonResponse({
+            "answer": result["answer"],
+            "sources": result["sources"],
+            "history": history,
+        })
 
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON body."}, status=400)
     except Exception as e:
         return JsonResponse({"error": f"Server error: {str(e)}"}, status=500)
+
+
+# ── Clear Chat History ──
+@login_required
+@require_http_methods(["POST"])
+def clear_chat_history(request):
+    """POST /chatbot/api/clear/ — clears the session's conversation history."""
+    request.session.pop("chatbot_history", None)
+    request.session.modified = True
+    return JsonResponse({"status": "ok", "message": "Conversation history cleared."})
 
 
 # ── Document Management (Principal only) ──

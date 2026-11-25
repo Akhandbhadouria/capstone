@@ -624,9 +624,12 @@
     const sendBtn = document.getElementById('sendBtn');
     const welcomeScreen = document.getElementById('welcomeScreen');
     const CHAT_API_URL = "{% url 'chat_api' %}";
+    const CLEAR_API_URL = "{% url 'clear_chat_history' %}";
     const CSRF_TOKEN = "{{ csrf_token }}";
 
     let hasMessages = false;
+    // Local conversation history mirror (capped at 6 messages = 3 pairs)
+    let conversationHistory = [];
 
     function autoResize(el) {
         el.style.height = 'auto';
@@ -713,18 +716,12 @@
     }
 
     function formatAnswer(text) {
-        // Basic markdown-like rendering
         text = escapeHtml(text);
-        // Bold
         text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        // Bullet lists
         text = text.replace(/^[\s]*[-•]\s(.+)/gm, '<li>$1</li>');
         text = text.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
-        // Numbered lists
         text = text.replace(/^\d+\.\s(.+)/gm, '<li>$1</li>');
-        // Inline code
         text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
-        // Line breaks to paragraphs
         const paras = text.split(/\n\n+/);
         text = paras.map(p => {
             p = p.trim();
@@ -739,6 +736,16 @@
         const div = document.createElement('div');
         div.appendChild(document.createTextNode(text));
         return div.innerHTML;
+    }
+
+    async function clearHistory() {
+        try {
+            await fetch(CLEAR_API_URL, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF_TOKEN },
+            });
+        } catch (_) {}
+        conversationHistory = [];
     }
 
     async function sendMessage() {
@@ -759,7 +766,7 @@
                     'Content-Type': 'application/json',
                     'X-CSRFToken': CSRF_TOKEN,
                 },
-                body: JSON.stringify({ query })
+                body: JSON.stringify({ query, history: conversationHistory })
             });
 
             const data = await response.json();
@@ -768,6 +775,10 @@
                 appendAIMessage(data.error || 'An unexpected error occurred.', [], true);
             } else {
                 appendAIMessage(data.answer, data.sources);
+                // Sync history from server response (server already capped at 6)
+                if (Array.isArray(data.history)) {
+                    conversationHistory = data.history.slice(-6);
+                }
             }
 
         } catch (err) {
